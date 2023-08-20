@@ -73,7 +73,7 @@ jobs:
       run: docker push -a ghcr.io/inglesefe/api
 
   deploy:
-    runs-on: [self-hosted, 'deploy_${{ github.ref_name }}']
+    runs-on: [self-hosted, 'deploy-${{ github.ref_name }}']
     env:
       solution: Api
       version: 1.0.${{ github.run_number }}
