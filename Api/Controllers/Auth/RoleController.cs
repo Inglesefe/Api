@@ -1,11 +1,14 @@
-﻿using Business.Auth;
+﻿using Business;
+using Business.Auth;
 using Business.Exceptions;
+using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MySql.Data.MySqlClient;
 
 namespace Api.Controllers.Auth
 {
@@ -22,10 +25,14 @@ namespace Api.Controllers.Auth
         /// Inicializa la configuración del controlador
         /// </summary>
         /// <param name="configuration">Configuración de la aplicación</param>
-        public RoleController(IConfiguration configuration) : base(
+        /// <param name="business">Capa de negocio de roles</param>
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de plantilla de errores</param>
+        public RoleController(IConfiguration configuration, IBusinessRole business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
             configuration,
-            new MySqlConnection(configuration.GetConnectionString("golden")),
-            new BusinessRole(new MySqlConnection(configuration.GetConnectionString("golden"))))
+            business,
+            log,
+            templateError)
         { }
         #endregion
 
@@ -223,7 +230,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar los usuarios asignados al rol " + role);
-                return ((BusinessRole)_business).ListUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                return ((IBusinessRole)_business).ListUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
             {
@@ -260,7 +267,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar los usuarios no asignados al rol " + role);
-                return ((BusinessRole)_business).ListNotUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                return ((IBusinessRole)_business).ListNotUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
             {
@@ -294,7 +301,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Asigna el rol " + role + " al usuario " + user.Id);
-                return ((BusinessRole)_business).InsertUser(user, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessRole)_business).InsertUser(user, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
@@ -328,7 +335,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Elimina el rol " + role + " del usuario " + user);
-                return ((BusinessRole)_business).DeleteUser(new() { Id = user }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessRole)_business).DeleteUser(new() { Id = user }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
@@ -365,7 +372,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar las aplicaciones asignadas al rol " + role);
-                return ((BusinessRole)_business).ListApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                return ((IBusinessRole)_business).ListApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
             {
@@ -402,7 +409,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar los usuarios no asignados al rol " + role);
-                return ((BusinessRole)_business).ListNotApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                return ((IBusinessRole)_business).ListNotApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
             {
@@ -436,7 +443,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Asigna el rol " + role + " a la aplicación " + application.Id);
-                return ((BusinessRole)_business).InsertApplication(application, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessRole)_business).InsertApplication(application, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
@@ -470,7 +477,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Elimina el rol " + role + " de la aplicación " + application);
-                return ((BusinessRole)_business).DeleteApplication(new() { Id = application }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessRole)_business).DeleteApplication(new() { Id = application }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {

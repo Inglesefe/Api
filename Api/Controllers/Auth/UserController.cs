@@ -1,20 +1,22 @@
 ﻿using Api.Dto;
+using Business;
 using Business.Auth;
 using Business.Dto;
 using Business.Exceptions;
 using Business.Noti;
+using Business.Util;
+using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using MySql.Data.MySqlClient;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace Api.Controllers.Auth
@@ -32,10 +34,14 @@ namespace Api.Controllers.Auth
         /// Inicializa la configuración del controlador
         /// </summary>
         /// <param name="configuration">Configuración de la aplicación</param>
-        public UserController(IConfiguration configuration) : base(
+        /// <param name="business">Capa de negocio de usuarios</param>
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de plantilla de errores</param>
+        public UserController(IConfiguration configuration, IBusinessUser business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
             configuration,
-            new MySqlConnection(configuration.GetConnectionString("golden")),
-            new BusinessUser(new MySqlConnection(configuration.GetConnectionString("golden"))))
+            business,
+            log,
+            templateError)
         { }
         #endregion
 
@@ -230,13 +236,13 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Inicio de sesión para el login " + data.Login);
-                User user = ((BusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
-                if (user != null)
+                User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
+                if (user.Id != 0)
                 {
                     var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? ""));
                     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-                    IList<Role> roles = ((BusinessUser)_business).ListRoles("", "", 100, 0, user).List;
+                    IList<Role> roles = ((IBusinessUser)_business).ListRoles("", "", 100, 0, user).List;
 
                     var claims = new[] {
                         new Claim("id", user.Id.ToString()),
@@ -290,22 +296,13 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Recuperación de contraseña para el login " + login);
-                User user = ((BusinessUser)_business).ReadByLogin(new() { Login = login });
-                if (user != null)
+                User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
+                if (user.Id != 0)
                 {
-                    using Aes aes = Aes.Create();
-                    aes.Key = Encoding.UTF8.GetBytes(_configuration["Aes:Key"] ?? "");
-                    aes.IV = Encoding.UTF8.GetBytes(_configuration["Aes:IV"] ?? "");
-
-                    ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-                    string param = user.Id + "~" + user.Login + "~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    byte[] paramBytes = Encoding.UTF8.GetBytes(param);
-                    byte[] cryptoBytes = encryptor.TransformFinalBlock(paramBytes, 0, paramBytes.Length);
-                    string crypto = Convert.ToBase64String(cryptoBytes);
+                    string crypto = Crypto.Encrypt(user.Id + "~" + user.Login + "~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                     //Enviar notificación
                     try
                     {
-                        BusinessTemplate businessTemplate = new(_connection);
                         SmtpConfig smtpConfig = new()
                         {
                             From = _configuration["Smtp:From"] ?? "",
@@ -315,7 +312,7 @@ namespace Api.Controllers.Auth
                             Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
                             Username = _configuration["Smtp:Username"] ?? ""
                         };
-                        Template template = businessTemplate.Read(new() { Id = 2 });
+                        Template template = _templateError.Read(new() { Id = 2 });
                         template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
                         Notification notification = new()
                         {
@@ -368,19 +365,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                string plainToken = "";
-                using (Aes aes = Aes.Create())
-                {
-                    aes.Key = Encoding.UTF8.GetBytes(_configuration["Aes:Key"] ?? "");
-                    aes.IV = Encoding.UTF8.GetBytes(_configuration["Aes:IV"] ?? "");
-
-                    ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-                    using MemoryStream msDecrypt = new(Convert.FromBase64String(data.Token));
-                    using CryptoStream csDecrypt = new(msDecrypt, decryptor, CryptoStreamMode.Read);
-                    using StreamReader srDecrypt = new(csDecrypt);
-                    plainToken = srDecrypt.ReadToEnd();
-                }
-
+                string plainToken = Crypto.Decrypt(data.Token, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                 string[] parts = plainToken.Split("~");
                 int id = int.Parse(parts[0]);
                 string login = parts[1];
@@ -392,15 +377,14 @@ namespace Api.Controllers.Auth
                 }
                 else
                 {
-                    User user = ((BusinessUser)_business).ReadByLogin(new() { Login = login });
+                    User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
                     if (user.Id != 0 && user.Id == id)
                     {
                         LogInfo("Actualiza el password del usuario " + user.Id);
-                        _ = ((BusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 });
+                        _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 });
                         //Enviar notificación
                         try
                         {
-                            BusinessTemplate businessTemplate = new(_connection);
                             SmtpConfig smtpConfig = new()
                             {
                                 From = _configuration["Smtp:From"] ?? "",
@@ -410,7 +394,7 @@ namespace Api.Controllers.Auth
                                 Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
                                 Username = _configuration["Smtp:Username"] ?? ""
                             };
-                            Template template = businessTemplate.Read(new() { Id = 3 });
+                            Template template = _templateError.Read(new() { Id = 3 });
                             template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
                             Notification notification = new()
                             {
@@ -468,7 +452,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar los roles asignados al usuario " + user);
-                return ((BusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                return ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
             }
             catch (PersistentException e)
             {
@@ -505,7 +489,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Listar los roles no asignados al usuario " + user);
-                return ((BusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                return ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
             }
             catch (PersistentException e)
             {
@@ -539,7 +523,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Asigna el rol " + role.Id + " al usuario " + user);
-                return ((BusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
@@ -573,7 +557,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Elimina el rol " + role + " del usuario " + user);
-                return ((BusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {

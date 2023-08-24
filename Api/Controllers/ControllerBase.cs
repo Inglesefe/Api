@@ -1,8 +1,8 @@
 using Business;
 using Business.Dto;
 using Business.Noti;
+using Dal;
 using Dal.Dto;
-using Dal.Log;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Mvc;
@@ -26,12 +26,17 @@ namespace Api.Controllers
         /// <summary>
         /// Capa de negocio asociada a la entidad
         /// </summary>
-        protected readonly BusinessBase<T> _business;
+        protected readonly IBusiness<T> _business;
 
         /// <summary>
-        /// Conexión a la base de datos para gestionar los logs
+        /// Administrador de logs en la base de datos
         /// </summary>
-        protected readonly IDbConnection _connection;
+        protected readonly IPersistentBase<LogComponent> _log;
+
+        /// <summary>
+        /// Administrador de plantilla de errores
+        /// </summary>
+        protected readonly IBusiness<Template> _templateError;
         #endregion
 
         #region Constructors
@@ -39,13 +44,15 @@ namespace Api.Controllers
         /// Inicializa la configuración y la capa de negocio asociada en el controlador
         /// </summary>
         /// <param name="configuration">Configuración de la aplicación</param>
-        /// <param name="connection">Conexión a la base de datos para gestionar los logs</param>
         /// <param name="business">Capar de negocio asociada a la entidad</param>
-        protected ControllerBase(IConfiguration configuration, IDbConnection connection, Business.BusinessBase<T> business)
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de notificaciones de error</param>
+        protected ControllerBase(IConfiguration configuration, IBusiness<T> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError)
         {
             _configuration = configuration;
-            _connection = connection;
+            _log = log;
             _business = business;
+            _templateError = templateError;
         }
         #endregion
 
@@ -94,7 +101,6 @@ namespace Api.Controllers
         /// <param name="info">Información a registrar</param>
         protected void LogInfo(string info)
         {
-            PersistentLogComponent log = new(_connection);
             if (_configuration.GetValue("LogInfo", false))
             {
                 ClaimsPrincipal user = HttpContext.User;
@@ -107,7 +113,7 @@ namespace Api.Controllers
                         userid = int.Parse(claim.Value);
                     }
                 }
-                log.Insert(new()
+                _log.Insert(new()
                 {
                     Type = "I",
                     Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
@@ -125,7 +131,6 @@ namespace Api.Controllers
         /// <param name="level">Nivel en el que se registró la excepción P - Persistencia, B - Negocio,  A - API</param>
         protected void LogError(Exception ex, string level)
         {
-            PersistentLogComponent log = new(_connection);
             ClaimsPrincipal user = HttpContext.User;
             int userid = 1;
             if (user != null)
@@ -144,7 +149,7 @@ namespace Api.Controllers
                 aux = aux.InnerException;
             }
             desc.Append(" - " + ex.StackTrace ?? "Error no identificado");
-            LogComponent l = log.Insert(new()
+            LogComponent l = _log.Insert(new()
             {
                 Type = "E",
                 Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
@@ -154,7 +159,6 @@ namespace Api.Controllers
             );
             try
             {
-                BusinessTemplate businessTemplate = new(_connection);
                 SmtpConfig smtpConfig = new()
                 {
                     From = _configuration["Smtp:From"] ?? "",
@@ -164,7 +168,7 @@ namespace Api.Controllers
                     Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
                     Username = _configuration["Smtp:Username"] ?? ""
                 };
-                Template template = businessTemplate.Read(new() { Id = 1 });
+                Template template = _templateError.Read(new() { Id = 1 });
                 template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "message", desc.ToString() }, { "id", l.Id.ToString() } });
                 Notification notification = new()
                 {

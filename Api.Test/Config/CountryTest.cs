@@ -1,10 +1,17 @@
 ﻿using Api.Controllers.Config;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +46,10 @@ namespace Api.Test.Config
         /// </summary>
         public CountryTest()
         {
+            Mock<IBusiness<Country>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -58,7 +69,61 @@ namespace Api.Test.Config
                 .AddEnvironmentVariables()
                 .Build();
 
-            _api = new(_configuration)
+            List<Country> countries = new()
+            {
+                new Country() { Id = 1, Code = "CO", Name = "Colombia" },
+                new Country() { Id = 2, Code = "US", Name = "Estados unidos" },
+                new Country() { Id = 3, Code = "EN", Name = "Inglaterra" }
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("idcountry = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<Country>(countries.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idpais = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<Country>()))
+                .Returns((Country country) => countries.Find(x => x.Id == country.Id) ?? new Country());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Country>(), It.IsAny<User>()))
+                .Returns((Country country, User user) =>
+                {
+                    if (countries.Exists(x => x.Code == country.Code))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        country.Id = countries.Count + 1;
+                        countries.Add(country);
+                        return country;
+                    }
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<Country>(), It.IsAny<User>()))
+                .Returns((Country country, User user) =>
+                {
+                    countries.Where(x => x.Id == country.Id).ToList().ForEach(x => x.Code = country.Code);
+                    return country;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Country>(), It.IsAny<User>()))
+                .Returns((Country city, User user) =>
+                {
+                    countries = countries.Where(x => x.Id != city.Id).ToList();
+                    return city;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };

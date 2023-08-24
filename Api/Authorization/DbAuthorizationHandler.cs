@@ -2,8 +2,6 @@
 using Dal.Dto;
 using Entities.Auth;
 using Microsoft.AspNetCore.Authorization;
-using MySql.Data.MySqlClient;
-using System.Data;
 using System.Security.Claims;
 
 namespace Api.Authorization
@@ -16,19 +14,20 @@ namespace Api.Authorization
     {
         #region Attributes
         /// <summary>
-        /// Conexión a la base de datos
+        /// Capa de negocio de las aplicaciones
         /// </summary>
-        private readonly IConfiguration _configuration;
+        private readonly IBusinessApplication _applications;
         #endregion
 
         #region Constructors
         /// <summary>
         /// Inicializa la conexión a la base de datos
         /// </summary>
-        /// <param name="connection">Conexión a la base de datos</param>
-        public DbAuthorizationHandler(IConfiguration configuration)
+        /// <param name="configuration">Configuración de la aplicación</param>
+        /// <param name="applications">Capa de negocio de las aplicaciones</param>
+        public DbAuthorizationHandler(IBusinessApplication applications)
         {
-            _configuration = configuration;
+            _applications = applications;
         }
         #endregion
 
@@ -37,7 +36,7 @@ namespace Api.Authorization
         /// Realiza la validación del usuario contra la base de datos
         /// </summary>
         /// <param name="context">Contexto de la solicitud Http</param>
-        /// <param name="requirement">Requerimiento con el id de la aplicación</param>
+        /// <param name="requirement">Requerimiento</param>
         /// <returns>Si el usuario es válido o no</returns>
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, DbAuthorizationRequirement requirement)
         {
@@ -60,9 +59,7 @@ namespace Api.Authorization
             if (ctx != null)
             {
                 string controller = (string)(ctx.Request.RouteValues["controller"] ?? "");
-                IDbConnection connection = new MySqlConnection(_configuration.GetConnectionString("golden"));
-                BusinessApplication businessApplication = new(connection);
-                ListResult<Role> roles = businessApplication.ListRoles("", "", 100, 0, new() { Id = applications[controller] });
+                ListResult<Role> roles = _applications.ListRoles("", "", 100, 0, new() { Id = applications[controller] });
                 if (roles.Total > 0)
                 {
                     string rolesInToken = context.User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value ?? "";
