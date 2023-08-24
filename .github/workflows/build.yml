@@ -62,12 +62,8 @@ jobs:
       run: docker login ghcr.io -u ${{ env.username }} -p ${{ secrets.GITHUB_TOKEN }}
 
     - name: Construir imagen Docker
-      if: ${{ github.ref_name == 'dev' }}
+      if: ${{ github.ref_name == 'dev' || github.ref_name == 'test' }}
       run: docker build ${{ env.solution }} -t ghcr.io/inglesefe/api:${{ env.version }} -t ghcr.io/inglesefe/api:${{ github.ref_name }} --build-arg CONFIG=Debug
-
-    - name: Construir imagen Docker
-      if: ${{ github.ref_name == 'test' }}
-      run: docker build ${{ env.solution }} -t ghcr.io/inglesefe/api:${{ env.version }} -t ghcr.io/inglesefe/api:${{ github.ref_name }} --build-arg CONFIG=Release
 
     - name: Construir imagen Docker
       if: ${{ github.ref_name == 'main' }}
@@ -77,6 +73,7 @@ jobs:
       run: docker push -a ghcr.io/inglesefe/api
 
   deploy:
+    needs: build
     runs-on: [self-hosted, 'deploy-${{ github.ref_name }}']
     env:
       solution: Api
