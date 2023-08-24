@@ -38,164 +38,6 @@ namespace Api.Controllers.Auth
 
         #region Methods
         /// <summary>
-        /// Trae un listado de roles desde la base de datos
-        /// </summary>
-        /// <param name="filters">Filtros aplicados a la consulta</param>
-        /// <param name="orders">Ordenamientos aplicados a la base de datos</param>
-        /// <param name="limit">Límite de registros a traer</param>
-        /// <param name="offset">Corrimiento desde el que se cuenta el número de registros</param>
-        /// <returns>Listado de roles</returns>
-        [HttpGet]
-        public override ListResult<Role> List(string? filters, string? orders, int limit, int offset)
-        {
-            try
-            {
-                LogInfo("Leer listado de roles");
-                return _business.List(filters ?? "", orders ?? "", limit, offset);
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-            }
-            Response.StatusCode = 500;
-            return new ListResult<Role>(new List<Role>(), 0);
-        }
-
-        /// <summary>
-        /// Consulta un rol dado su identificador
-        /// </summary>
-        /// <param name="id">Identificador del rol a consultar</param>
-        /// <returns>Rol con los datos cargados desde la base de datos o null si no lo pudo encontrar</returns>
-        [HttpGet("{id:int}")]
-        public override Role Read(int id)
-        {
-            try
-            {
-                LogInfo("Leer el rol " + id);
-                Role user = _business.Read(new() { Id = id });
-                if (user != null)
-                {
-                    return user;
-                }
-                else
-                {
-                    LogInfo("Rol " + id + " no encontrado");
-                    Response.StatusCode = 404;
-                    return new();
-                }
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-            }
-            Response.StatusCode = 500;
-            return new();
-        }
-
-        /// <summary>
-        /// Inserta un rol en la base de datos
-        /// </summary>
-        /// <param name="entity">Rol a insertar</param>
-        /// <returns>Rol insertado con el id generado por la base de datos</returns>
-        [HttpPost]
-        public override Role Insert([FromBody] Role entity)
-        {
-            try
-            {
-                LogInfo("Insertar el rol " + entity.Id);
-                return _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-            }
-            Response.StatusCode = 500;
-            return new();
-        }
-
-        /// <summary>
-        /// Actualiza un rol en la base de datos
-        /// </summary>
-        /// <param name="entity">Rol a actualizar</param>
-        /// <returns>Rol actualizado</returns>
-        [HttpPut]
-        public override Role Update([FromBody] Role entity)
-        {
-            try
-            {
-                LogInfo("Actualizar el rol " + entity.Id);
-                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-            }
-            Response.StatusCode = 500;
-            return new();
-        }
-
-        /// <summary>
-        /// Elimina un rol de la base de datos
-        /// </summary>
-        /// <param name="id">Identificador del rol a eliminar</param>
-        /// <returns>Rol eliminado</returns>
-        [HttpDelete("{id:int}")]
-        public override Role Delete(int id)
-        {
-            try
-            {
-                LogInfo("Actualizar el rol " + id);
-                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-            }
-            Response.StatusCode = 500;
-            return new();
-        }
-
-        /// <summary>
         /// Trae un listado de usuarios asignados a un rol desde la base de datos
         /// </summary>
         /// <param name="filters">Filtros aplicados a la consulta</param>
@@ -209,7 +51,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los usuarios asignados al rol " + role);
+                LogInfo("List users related to role " + role);
                 return ((IBusinessRole)_business).ListUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
@@ -242,7 +84,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los usuarios no asignados al rol " + role);
+                LogInfo("List users not related to role " + role);
                 return ((IBusinessRole)_business).ListNotUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
@@ -272,7 +114,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Asigna el rol " + role + " al usuario " + user.Id);
+                LogInfo("Insert role " + role + " to user " + user.Id);
                 return ((IBusinessRole)_business).InsertUser(user, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
@@ -302,7 +144,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Elimina el rol " + role + " del usuario " + user);
+                LogInfo("Delete role " + role + " to user " + user);
                 return ((IBusinessRole)_business).DeleteUser(new() { Id = user }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
@@ -335,7 +177,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar las aplicaciones asignadas al rol " + role);
+                LogInfo("List app related to role " + role);
                 return ((IBusinessRole)_business).ListApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
@@ -368,7 +210,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los usuarios no asignados al rol " + role);
+                LogInfo("List app not related to role " + role);
                 return ((IBusinessRole)_business).ListNotApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
             }
             catch (PersistentException e)
@@ -398,7 +240,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Asigna el rol " + role + " a la aplicación " + application.Id);
+                LogInfo("Insert role " + role + " to app " + application.Id);
                 return ((IBusinessRole)_business).InsertApplication(application, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
@@ -428,7 +270,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Elimina el rol " + role + " de la aplicación " + application);
+                LogInfo("Delete role " + role + " to app " + application);
                 return ((IBusinessRole)_business).DeleteApplication(new() { Id = application }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
