@@ -88,27 +88,23 @@ namespace Api.Controllers.Config
                 {
                     LogInfo("Ciudad " + id + " no encontrada");
                     Response.StatusCode = 404;
-                    return new City();
+                    return new();
                 }
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new City();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -127,21 +123,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new City();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -160,21 +152,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new City();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -193,21 +181,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new City();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new City();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }

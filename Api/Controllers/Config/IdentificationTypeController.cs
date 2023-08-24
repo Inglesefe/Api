@@ -88,27 +88,23 @@ namespace Api.Controllers.Config
                 {
                     LogInfo("Tipo de identificación " + id + " no encontrado");
                     Response.StatusCode = 404;
-                    return new IdentificationType();
+                    return new();
                 }
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -127,21 +123,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -160,21 +152,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -193,21 +181,17 @@ namespace Api.Controllers.Config
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new IdentificationType();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }

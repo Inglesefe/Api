@@ -87,27 +87,23 @@ namespace Api.Controllers.Noti
                 {
                     LogInfo("Notificación " + id + " no encontrada");
                     Response.StatusCode = 404;
-                    return new Notification();
+                    return new();
                 }
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Notification();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -126,21 +122,17 @@ namespace Api.Controllers.Noti
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Notification();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -159,21 +151,17 @@ namespace Api.Controllers.Noti
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Notification();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -192,21 +180,17 @@ namespace Api.Controllers.Noti
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Notification();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Notification();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }

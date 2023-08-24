@@ -56,21 +56,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Role>(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -93,27 +89,23 @@ namespace Api.Controllers.Auth
                 {
                     LogInfo("Rol " + id + " no encontrado");
                     Response.StatusCode = 404;
-                    return new Role();
+                    return new();
                 }
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -132,21 +124,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -165,21 +153,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -198,21 +182,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -235,21 +215,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<User>(new List<User>(), 0);
         }
 
         /// <summary>
@@ -272,21 +248,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<User>(new List<User>(), 0);
         }
 
         /// <summary>
@@ -306,21 +278,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -340,21 +308,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -377,21 +341,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Application>(new List<Application>(), 0);
         }
 
         /// <summary>
@@ -414,21 +374,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Application>(new List<Application>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Application>(new List<Application>(), 0);
         }
 
         /// <summary>
@@ -448,21 +404,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -482,21 +434,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }
