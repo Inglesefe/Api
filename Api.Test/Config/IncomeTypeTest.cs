@@ -1,10 +1,17 @@
 ﻿using Api.Controllers.Config;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +46,10 @@ namespace Api.Test.Config
         /// </summary>
         public IncomeTypeTest()
         {
+            Mock<IBusiness<IncomeType>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -58,7 +69,61 @@ namespace Api.Test.Config
                 .AddEnvironmentVariables()
                 .Build();
 
-            _api = new(_configuration)
+            List<IncomeType> incomeTypes = new()
+            {
+                new IncomeType() { Id = 1, Code = "CI", Name = "Cuota inicial" },
+                new IncomeType() { Id = 2, Code = "CR", Name = "Crédito cartera" },
+                new IncomeType() { Id = 3, Code = "FC", Name = "Factura" }
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("idincometype = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<IncomeType>(incomeTypes.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idtipoingreso = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<IncomeType>()))
+                .Returns((IncomeType incomeType) => incomeTypes.Find(x => x.Id == incomeType.Id) ?? new IncomeType());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
+                {
+                    if (incomeTypes.Exists(x => x.Code == incomeType.Code))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        incomeType.Id = incomeTypes.Count + 1;
+                        incomeTypes.Add(incomeType);
+                        return incomeType;
+                    }
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
+                {
+                    incomeTypes.Where(x => x.Id == incomeType.Id).ToList().ForEach(x => x.Name = incomeType.Name);
+                    return incomeType;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
+                {
+                    incomeTypes = incomeTypes.Where(x => x.Id != incomeType.Id).ToList();
+                    return incomeType;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };

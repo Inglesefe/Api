@@ -1,10 +1,17 @@
 ﻿using Api.Controllers.Config;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +46,10 @@ namespace Api.Test.Config
         /// </summary>
         public PlanTest()
         {
+            Mock<IBusiness<Plan>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -58,7 +69,62 @@ namespace Api.Test.Config
                 .AddEnvironmentVariables()
                 .Build();
 
-            _api = new(_configuration)
+            List<Plan> plans = new()
+            {
+                new Plan() { Id = 1, Value = 3779100, InitialFee = 444600, InstallmentsNumber = 12, InstallmentValue = 444600, Active = true, Description = "PLAN COFREM 12 MESES" },
+                new Plan() { Id = 2, Value = 3779100, InitialFee = 282600, InstallmentsNumber = 15, InstallmentValue = 233100, Active = true, Description = "PLAN COFREM 15 MESES" },
+                new Plan() { Id = 3, Value = 3779100, InitialFee = 235350, InstallmentsNumber = 15, InstallmentValue = 236250, Active = false, Description = "PLAN COFREM 15 MESES ESPECIAL" }
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("idplan = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<Plan>(plans.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idplano = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<Plan>()))
+                .Returns((Plan plan) => plans.Find(x => x.Id == plan.Id) ?? new Plan());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Plan>(), It.IsAny<User>()))
+                .Returns((Plan plan, User user) =>
+                {
+                    plan.Id = plans.Count + 1;
+                    plans.Add(plan);
+                    return plan;
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<Plan>(), It.IsAny<User>()))
+                .Returns((Plan plan, User user) =>
+                {
+                    plans.Where(x => x.Id == plan.Id).ToList().ForEach(x =>
+                    {
+                        x.Value = plan.Value;
+                        x.InitialFee = plan.InitialFee;
+                        x.InstallmentsNumber = plan.InstallmentsNumber;
+                        x.InstallmentValue = plan.InstallmentValue;
+                        x.Active = plan.Active;
+                        x.Description = plan.Description;
+                    });
+                    return plan;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Plan>(), It.IsAny<User>()))
+                .Returns((Plan plan, User user) =>
+                {
+                    plans = plans.Where(x => x.Id != plan.Id).ToList();
+                    return plan;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };
@@ -84,7 +150,7 @@ namespace Api.Test.Config
         [Fact]
         public void PlanListWithErrorTest()
         {
-            ListResult<Plan> list = _api.List("idplan = 1", "valor", 1, 0);
+            ListResult<Plan> list = _api.List("idplano = 1", "value", 1, 0);
 
             Assert.Equal(0, list.Total);
         }

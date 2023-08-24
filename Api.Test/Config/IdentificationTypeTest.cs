@@ -1,10 +1,17 @@
 ﻿using Api.Controllers.Config;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +46,10 @@ namespace Api.Test.Config
         /// </summary>
         public IdentificationTypeTest()
         {
+            Mock<IBusiness<IdentificationType>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -58,7 +69,61 @@ namespace Api.Test.Config
                 .AddEnvironmentVariables()
                 .Build();
 
-            _api = new(_configuration)
+            List<IdentificationType> identificationTypes = new()
+            {
+                new IdentificationType() { Id = 1, Name = "Cédula ciudadanía" },
+                new IdentificationType() { Id = 2, Name = "Cédula extranjería" },
+                new IdentificationType() { Id = 3, Name = "Pasaporte" }
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("ididentificationtype = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<IdentificationType>(identificationTypes.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idtipoidentificacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<IdentificationType>()))
+                .Returns((IdentificationType identificationType) => identificationTypes.Find(x => x.Id == identificationType.Id) ?? new IdentificationType());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<IdentificationType>(), It.IsAny<User>()))
+                .Returns((IdentificationType identificationType, User user) =>
+                {
+                    if (identificationTypes.Exists(x => x.Name == identificationType.Name))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        identificationType.Id = identificationTypes.Count + 1;
+                        identificationTypes.Add(identificationType);
+                        return identificationType;
+                    }
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<IdentificationType>(), It.IsAny<User>()))
+                .Returns((IdentificationType identificationType, User user) =>
+                {
+                    identificationTypes.Where(x => x.Id == identificationType.Id).ToList().ForEach(x => x.Name = identificationType.Name);
+                    return identificationType;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<IdentificationType>(), It.IsAny<User>()))
+                .Returns((IdentificationType identificationType, User user) =>
+                {
+                    identificationTypes = identificationTypes.Where(x => x.Id != identificationType.Id).ToList();
+                    return identificationType;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };
@@ -97,7 +162,7 @@ namespace Api.Test.Config
         {
             IdentificationType identificationType = _api.Read(1);
 
-            Assert.Equal("Cedula ciudadania", identificationType.Name);
+            Assert.Equal("Cédula ciudadanía", identificationType.Name);
         }
 
         /// <summary>
@@ -134,7 +199,7 @@ namespace Api.Test.Config
 
             IdentificationType identificationType2 = _api.Read(2);
 
-            Assert.NotEqual("Cedula extranjeria", identificationType2.Name);
+            Assert.NotEqual("Cédula extranjería", identificationType2.Name);
         }
 
         /// <summary>

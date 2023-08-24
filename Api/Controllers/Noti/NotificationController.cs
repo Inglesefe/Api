@@ -1,11 +1,12 @@
-﻿using Business.Exceptions;
-using Business.Noti;
+﻿using Business;
+using Business.Exceptions;
+using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
+using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MySql.Data.MySqlClient;
 
 namespace Api.Controllers.Noti
 {
@@ -22,8 +23,14 @@ namespace Api.Controllers.Noti
         /// Inicializa la configuración del controlador
         /// </summary>
         /// <param name="configuration">Configuración de la aplicación</param>
-        public NotificationController(IConfiguration configuration) :
-            base(configuration, new MySqlConnection(configuration.GetConnectionString("golden")), new BusinessNotification(new MySqlConnection(configuration.GetConnectionString("golden"))))
+        /// <param name="business">Capa de negocio de notificaciones</param>
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de notificaciones de error</param>
+        public NotificationController(IConfiguration configuration, IBusiness<Notification> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
+                  configuration,
+                  business,
+                  log,
+                  templateError)
         { }
         #endregion
 

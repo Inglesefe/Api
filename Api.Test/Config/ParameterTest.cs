@@ -1,10 +1,17 @@
 ﻿using Api.Controllers.Config;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +46,10 @@ namespace Api.Test.Config
         /// </summary>
         public ParameterTest()
         {
+            Mock<IBusiness<Parameter>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -58,7 +69,61 @@ namespace Api.Test.Config
                 .AddEnvironmentVariables()
                 .Build();
 
-            _api = new(_configuration)
+            List<Parameter> parameters = new()
+            {
+                new Parameter() { Id = 1, Name = "Parámetro 1", Value = "Valor 1" },
+                new Parameter() { Id = 2, Name = "Parámetro 2", Value = "Valor 2" },
+                new Parameter() { Id = 3, Name = "Parámetro 3", Value = "Valor 3" }
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("idparameter = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<Parameter>(parameters.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idparametro = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<Parameter>()))
+                .Returns((Parameter parameter) => parameters.Find(x => x.Id == parameter.Id) ?? new Parameter());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Parameter>(), It.IsAny<User>()))
+                .Returns((Parameter parameter, User user) =>
+                {
+                    if (parameters.Exists(x => x.Name == parameter.Name))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        parameter.Id = parameters.Count + 1;
+                        parameters.Add(parameter);
+                        return parameter;
+                    }
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<Parameter>(), It.IsAny<User>()))
+                .Returns((Parameter parameter, User user) =>
+                {
+                    parameters.Where(x => x.Id == parameter.Id).ToList().ForEach(x => x.Name = parameter.Name);
+                    return parameter;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Parameter>(), It.IsAny<User>()))
+                .Returns((Parameter parameter, User user) =>
+                {
+                    parameters = parameters.Where(x => x.Id != parameter.Id).ToList();
+                    return parameter;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };
@@ -97,7 +162,7 @@ namespace Api.Test.Config
         {
             Parameter country = _api.Read(1);
 
-            Assert.Equal("Parametro 1", country.Name);
+            Assert.Equal("Parámetro 1", country.Name);
         }
 
         /// <summary>
@@ -117,7 +182,7 @@ namespace Api.Test.Config
         [Fact]
         public void ParameterInsertTest()
         {
-            Parameter country = new() { Name = "Parametro 4", Value = "Valor 4" };
+            Parameter country = new() { Name = "Parámetro 4", Value = "Valor 4" };
             country = _api.Insert(country);
 
             Assert.NotEqual(0, country.Id);
@@ -129,12 +194,12 @@ namespace Api.Test.Config
         [Fact]
         public void ParameterUpdateTest()
         {
-            Parameter country = new() { Id = 2, Name = "Parametro 6", Value = "Valor 6" };
+            Parameter country = new() { Id = 2, Name = "Parámetro 6", Value = "Valor 6" };
             _ = _api.Update(country);
 
             Parameter country2 = _api.Read(2);
 
-            Assert.NotEqual("Parametro 2", country2.Name);
+            Assert.NotEqual("Parámetro 2", country2.Name);
         }
 
         /// <summary>

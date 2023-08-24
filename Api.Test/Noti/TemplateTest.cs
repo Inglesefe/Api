@@ -1,10 +1,16 @@
 ﻿using Api.Controllers.Noti;
+using Business;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
+using Entities.Auth;
+using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -39,6 +45,10 @@ namespace Api.Test.Noti
         /// </summary>
         public TemplateTest()
         {
+            Mock<IBusiness<Template>> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -57,7 +67,53 @@ namespace Api.Test.Noti
                 .AddJsonFile("appsettings.json", false, false)
                 .AddEnvironmentVariables()
                 .Build();
-            _api = new(_configuration)
+
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("idtemplate = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<Template>(templates.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idplantilla = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<Template>()))
+                .Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Template>(), It.IsAny<User>()))
+                .Returns((Template template, User user) =>
+                {
+                    template.Id = templates.Count + 1;
+                    templates.Add(template);
+                    return template;
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<Template>(), It.IsAny<User>()))
+                .Returns((Template template, User user) =>
+                {
+                    templates.Where(x => x.Id == template.Id).ToList().ForEach(x =>
+                    {
+                        x.Name = template.Name;
+                        x.Content = template.Content;
+                    });
+                    return template;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Template>(), It.IsAny<User>()))
+                .Returns((Template template, User user) =>
+                {
+                    templates = templates.Where(x => x.Id != template.Id).ToList();
+                    return template;
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };
@@ -85,7 +141,7 @@ namespace Api.Test.Noti
         [Fact]
         public void TemplateListWithErrorTest()
         {
-            ListResult<Template> list = _api.List("idnotificacion = 1", "name", 1, 0);
+            ListResult<Template> list = _api.List("idplantilla = 1", "name", 1, 0);
 
             Assert.Equal(0, list.Total);
         }
@@ -99,7 +155,7 @@ namespace Api.Test.Noti
         {
             Template template = _api.Read(1);
 
-            Assert.Equal("Plantilla de prueba", template.Name);
+            Assert.Equal("Notificación de error", template.Name);
         }
 
         /// <summary>
@@ -139,7 +195,7 @@ namespace Api.Test.Noti
 
             Template template2 = _api.Read(2);
 
-            Assert.NotEqual("Plantilla a actualizar", template2.Name);
+            Assert.NotEqual("Recuperación contraseña", template2.Name);
         }
 
         /// <summary>

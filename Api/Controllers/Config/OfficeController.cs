@@ -1,11 +1,13 @@
-﻿using Business.Config;
+﻿using Business;
 using Business.Exceptions;
+using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MySql.Data.MySqlClient;
 
 namespace Api.Controllers.Config
 {
@@ -22,10 +24,14 @@ namespace Api.Controllers.Config
         /// Inicializa la configuración del controlador
         /// </summary>
         /// <param name="configuration">Configuración de la oficina</param>
-        public OfficeController(IConfiguration configuration) : base(
+        /// <param name="business">Capa de negocio de oficinas</param>
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de notificaciones de error</param>
+        public OfficeController(IConfiguration configuration, IBusiness<Office> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
                   configuration,
-                  new MySqlConnection(configuration.GetConnectionString("golden")),
-                  new BusinessOffice(new MySqlConnection(configuration.GetConnectionString("golden"))))
+                  business,
+                  log,
+                  templateError)
         { }
         #endregion
 

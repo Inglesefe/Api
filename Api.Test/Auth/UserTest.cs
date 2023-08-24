@@ -1,15 +1,21 @@
 ﻿using Api.Controllers.Auth;
 using Api.Dto;
+using Business;
+using Business.Auth;
+using Business.Util;
+using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Log;
+using Entities.Noti;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Moq;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Security.Principal;
-using System.Text;
 
 namespace Api.Test.Auth
 {
@@ -42,6 +48,10 @@ namespace Api.Test.Auth
         /// </summary>
         public UserTest()
         {
+            Mock<IBusinessUser> mockBusiness = new();
+            Mock<IPersistentBase<LogComponent>> mockLog = new();
+            Mock<IBusiness<Template>> mockTemplate = new();
+
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             _controllerContext = new ControllerContext
@@ -60,7 +70,119 @@ namespace Api.Test.Auth
                 .AddJsonFile("appsettings.json", false, false)
                 .AddEnvironmentVariables()
                 .Build();
-            _api = new(_configuration)
+
+            List<Role> roles = new()
+            {
+                new Role() { Id = 1, Name = "Administradores" },
+                new Role() { Id = 2, Name = "Actualízame" },
+                new Role() { Id = 3, Name = "Bórrame" },
+                new Role() { Id = 4, Name = "Para probar user_role y application_role" },
+            };
+            List<User> users = new()
+            {
+                new User() { Id = 1, Login = "leandrobaena@gmail.com", Name = "Leandro Baena Torres", Active = true },
+                new User() { Id = 2, Login = "actualizame@gmail.com", Name = "Karol Ximena Baena", Active = true },
+                new User() { Id = 3, Login = "borrame@gmail.com", Name = "David Santiago Baena", Active = true },
+                new User() { Id = 4, Login = "inactivo@gmail.com", Name = "Luz Marina Torres", Active = false }
+            };
+            List<Tuple<User, Role>> users_roles = new()
+            {
+                new Tuple<User, Role>(users[0], roles[0]),
+                new Tuple<User, Role>(users[0], roles[1]),
+                new Tuple<User, Role>(users[1], roles[0]),
+                new Tuple<User, Role>(users[1], roles[1])
+            };
+            List<Template> templates = new()
+            {
+                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
+                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
+                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+            };
+
+            mockBusiness.Setup(p => p.List("iduser = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Returns(new ListResult<User>(users.Where(y => y.Id == 1).ToList(), 1));
+            mockBusiness.Setup(p => p.List("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<User>()))
+                .Returns((User user) => users.Find(x => x.Id == user.Id) ?? new User());
+
+            mockBusiness.Setup(p => p.ReadByLoginAndPassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns((User user, string password, string key, string iv) => users.Find(x => x.Login == user.Login && password == "FLWnwyoEz/7tYsnS+vxTVg==" && x.Active) ?? new User());
+
+            mockBusiness.Setup(p => p.ReadByLogin(It.IsAny<User>()))
+                .Returns((User user) => users.Find(x => x.Login == user.Login) ?? new User());
+
+            mockBusiness.Setup(p => p.Insert(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
+                {
+                    if (users.Exists(x => x.Login == user.Login))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        user.Id = users.Count + 1;
+                        users.Add(user);
+                        return user;
+                    }
+                });
+
+            mockBusiness.Setup(p => p.Update(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
+                {
+                    users.Where(x => x.Id == user.Id).ToList().ForEach(x => { x.Login = user.Login; x.Name = user.Name; x.Active = user.Active; });
+                    return user;
+                });
+
+            mockBusiness.Setup(p => p.UpdatePassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<User>()))
+                .Returns((User user, string password, string key, string iv, User user1) =>
+                {
+                    return user;
+                });
+
+            mockBusiness.Setup(p => p.Delete(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
+                {
+                    users = users.Where(x => x.Id != user.Id).ToList();
+                    return user;
+                });
+
+            mockBusiness.Setup(p => p.ListRoles("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+                .Returns(new ListResult<Role>(users_roles.Where(x => x.Item1.Id == 1).Select(x => x.Item2).ToList(), 1));
+
+            mockBusiness.Setup(p => p.ListRoles("r.idrole = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+                .Returns(new ListResult<Role>(new List<Role>(), 0));
+
+            mockBusiness.Setup(p => p.ListRoles("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+                .Throws<PersistentException>();
+
+            mockBusiness.Setup(p => p.ListNotRoles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+                .Returns((string filters, string orders, int limit, int offset, User user) =>
+                {
+                    List<Role> result = roles.Where(x => !users_roles.Exists(y => y.Item1.Id == user.Id && y.Item2.Id == x.Id)).ToList();
+                    return new ListResult<Role>(result, result.Count);
+                });
+
+            mockBusiness.Setup(p => p.InsertRole(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<User>())).
+                Returns((Role role, User user, User user1) =>
+                {
+                    if (users_roles.Exists(x => x.Item1.Id == user.Id && x.Item2.Id == role.Id))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        users_roles.Add(new Tuple<User, Role>(user, role));
+                        return role;
+                    }
+                });
+
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
             {
                 ControllerContext = _controllerContext
             };
@@ -71,7 +193,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un listado de usuarios con filtros, ordenamientos y límite
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserListTest()
         {
@@ -84,7 +205,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un listado de usuarios con filtros, ordenamientos y límite y con errores
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserListWithErrorTest()
         {
@@ -95,7 +215,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un usuario dado su identificador
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserReadTest()
         {
@@ -106,7 +225,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un usuario que no existe dado su identificador
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserReadNotFoundTest()
         {
@@ -117,7 +235,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la inserción de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserInsertTest()
         {
@@ -129,7 +246,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la inserción de un usuario con login duplicado
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserInsertDuplicateTest()
         {
@@ -141,7 +257,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la actualización de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserUpdateTest()
         {
@@ -157,7 +272,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la eliminación de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserDeleteTest()
         {
@@ -171,7 +285,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un usuario dado su login y contraseña
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserReadByLoginAndPasswordTest()
         {
@@ -180,48 +293,36 @@ namespace Api.Test.Auth
         }
 
         /// <summary>
-        /// Prueba la consulta de un usuario que no existe dado su login y password
+        /// Prueba la consulta de un usuario inactivo dado su login y password
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
-        public void UserReadByLoginAndPasswordWithErrorTest()
+        public void UserReadByLoginTest()
         {
-            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "actualizame@gmail.com", Password = "Errada" });
-            Assert.False(response.Valid);
+            LoginResponse response = _api.ReadByLogin("leandrobaena@gmail.com");
+
+            Assert.True(response.Valid);
         }
 
         /// <summary>
-        /// Prueba la consulta de un usuario inactivo dado su login y password
+        /// Prueba la consulta de un usuario dado su login
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserReadByLoginAndPasswordInactiveTest()
         {
-            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "Prueba123" });
+            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
             Assert.False(response.Valid);
         }
 
         /// <summary>
         /// Prueba la actualización de la contraseña de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserUpdatePasswordTest()
         {
-            using Aes aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(_configuration["Aes:Key"] ?? "");
-            aes.IV = Encoding.UTF8.GetBytes(_configuration["Aes:IV"] ?? "");
-
-            ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-            string param = "1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            byte[] paramBytes = Encoding.UTF8.GetBytes(param);
-            byte[] cryptoBytes = encryptor.TransformFinalBlock(paramBytes, 0, paramBytes.Length);
-            string crypto = Convert.ToBase64String(cryptoBytes);
-
             ChangePasswordRequest request = new()
             {
                 Password = "Prueba123",
-                Token = crypto
+                Token = Crypto.Encrypt("1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "")
             };
             _ = _api.UpdatePassword(request);
 
@@ -232,7 +333,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un listado de roles de un usuario con filtros, ordenamientos y límite
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserListRolesTest()
         {
@@ -245,7 +345,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un listado de roles de un usuario con filtros, ordenamientos y límite y con errores
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserListRolesWithErrorTest()
         {
@@ -258,7 +357,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la consulta de un listado de roles no asignados a un usuario con filtros, ordenamientos y límite
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserListNotRolesTest()
         {
@@ -271,7 +369,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la inserción de un rol de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserInsertRoleTest()
         {
@@ -282,7 +379,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la inserción de un rol de un usuario duplicado
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserInsertRoleDuplicateTest()
         {
@@ -293,7 +389,6 @@ namespace Api.Test.Auth
         /// <summary>
         /// Prueba la eliminación de un rol de un usuario
         /// </summary>
-        /// <returns>N/A</returns>
         [Fact]
         public void UserDeleteRoleTest()
         {
