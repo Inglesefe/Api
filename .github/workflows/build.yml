@@ -1,0 +1,114 @@
+name: Compilar Api
+on:
+  push:
+    branches:
+      - "main"
+      - "test"
+      - "dev"
+jobs:
+  build:
+    runs-on: [self-hosted, '${{ github.ref_name }}']
+    env:
+      solution: Api
+      version: 1.0.${{ github.run_number }}
+      username: leandrobaena@gmail.com
+      mysql-user: test
+      mysql-pass: Golden*2023
+      sonarQubeKey: sqa_c24b73b519e482496ce1070a56f68c87a1c384c5
+      sonarQubeKeyTest: sqa_5db36155535cbfd1204205496d04da486b602639
+
+    steps:
+    - name: Descarga del código
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Eliminar repositorio previo
+      continue-on-error: true
+      run: dotnet nuget remove source github
+
+    - name: Adicionar repositorio
+      run: dotnet nuget add source --username ${{ env.username }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/inglesefe/index.json"
+
+    - name: Inicializar SonarQube
+      if: ${{ github.ref_name == 'dev' }}
+      run: dotnet sonarscanner begin /k:"${{ env.solution }}" /d:sonar.host.url="http://localhost:9000"  /d:sonar.token="${{ env.sonarQubeKey }}" /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+
+    - name: Inicializar SonarQube
+      if: ${{ github.ref_name == 'test' }}
+      run: dotnet sonarscanner begin /k:"${{ env.solution }}" /d:sonar.host.url="http://localhost:9000" /d:sonar.token="${{ env.sonarQubeKeyTest }}" /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+
+    - name: Compilar la solución
+      if: ${{ github.ref_name == 'dev' || github.ref_name == 'test' }}
+      run: dotnet build ${{ env.solution }}.sln -c Debug --no-incremental
+
+    - name: Compilar la solución
+      if: ${{ github.ref_name == 'main' }}
+      run: dotnet build ${{ env.solution }}.sln -c Release
+
+    - name: Ejecutar pruebas unitarias
+      if: ${{ github.ref_name == 'dev' || github.ref_name == 'test' }}
+      run: dotnet-coverage collect "dotnet test" -f xml -o "coverage.xml"
+
+    - name: Finalizar SonarQube
+      if: ${{ github.ref_name == 'dev' }}
+      run: dotnet sonarscanner end /d:sonar.login="${{ env.sonarQubeKey }}"
+
+    - name: Finalizar SonarQube
+      if: ${{ github.ref_name == 'test' }}
+      run: dotnet sonarscanner end /d:sonar.login="${{ env.sonarQubeKeyTest }}"
+
+    - name: Conectar al repositorio de imágenes
+      run: docker login ghcr.io -u ${{ env.username }} -p ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Construir imagen Docker
+      if: ${{ github.ref_name == 'dev' }}
+      run: docker build ${{ env.solution }} -t ghcr.io/inglesefe/api:${{ env.version }} -t ghcr.io/inglesefe/api:${{ github.ref_name }} --build-arg CONFIG=Debug
+
+    - name: Construir imagen Docker
+      if: ${{ github.ref_name == 'test' }}
+      run: docker build ${{ env.solution }} -t ghcr.io/inglesefe/api:${{ env.version }} -t ghcr.io/inglesefe/api:${{ github.ref_name }} --build-arg CONFIG=Release
+
+    - name: Construir imagen Docker
+      if: ${{ github.ref_name == 'main' }}
+      run: docker build ${{ env.solution }} -t ghcr.io/inglesefe/api:${{ env.version }} -t ghcr.io/inglesefe/api:latest --build-arg CONFIG=Release
+
+    - name: Publicar imagen Docker
+      run: docker push -a ghcr.io/inglesefe/api
+
+  deploy:
+    runs-on: [self-hosted, 'deploy-${{ github.ref_name }}']
+    env:
+      solution: Api
+      version: 1.0.${{ github.run_number }}
+      username: leandrobaena@gmail.com
+
+    steps:
+    - name: Descarga del código
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Reemplazar variables dev
+      if: ${{ github.ref_name == 'dev' }}
+      uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
+      with:
+        files: ${{ env.solution }}\deploy.yml
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://192.168.1.4/change-password/
+
+    - name: Reemplazar variables test
+      if: ${{ github.ref_name == 'test' }}
+      uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
+      with:
+        files: ${{ env.solution }}\deploy.yml
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=31000,--portHttps--=31001,--urlChangePassword--=https://192.168.1.7/change-password/
+
+    - name: Reemplazar variables
+      if: ${{ github.ref_name == 'main' }}
+      uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
+      with:
+        files: ${{ env.solution }}\deploy.yml
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://192.168.1.7/change-password/
+
+    - name: Desplegar en Kubernetes
+      run: kubectl apply -f ${{ github.workspace }}\${{ env.solution }}\deploy.yml
