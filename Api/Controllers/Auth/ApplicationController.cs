@@ -38,20 +38,21 @@ namespace Api.Controllers.Auth
 
         #region Methods
         /// <summary>
-        /// Trae un listado de usuarios desde la base de datos
+        /// Trae un listado de roles asignados a una aplicación desde la base de datos
         /// </summary>
         /// <param name="filters">Filtros aplicados a la consulta</param>
         /// <param name="orders">Ordenamientos aplicados a la base de datos</param>
         /// <param name="limit">Límite de registros a traer</param>
         /// <param name="offset">Corrimiento desde el que se cuenta el número de registros</param>
-        /// <returns>Listado de usuarios</returns>
-        [HttpGet]
-        public override ListResult<Application> List(string? filters, string? orders, int limit, int offset)
+        /// <param name="application">Aplicación a la que se le consultan los roles asignados</param>
+        /// <returns>Listado de roles asignados a la aplicación</returns>
+        [HttpGet("{application:int}/role")]
+        public ListResult<Role> ListRoles(string? filters, string? orders, int limit, int offset, int application)
         {
             try
             {
-                LogInfo("Leer listado de aplicaciones");
-                return _business.List(filters ?? "", orders ?? "", limit, offset);
+                LogInfo("List roles related to app " + application);
+                return ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
             }
             catch (PersistentException e)
             {
@@ -66,186 +67,7 @@ namespace Api.Controllers.Auth
                 LogError(e, "A");
             }
             Response.StatusCode = 500;
-            return new ListResult<Application>(new List<Application>(), 0);
-        }
-
-        /// <summary>
-        /// Consulta una aplicación dado su identificador
-        /// </summary>
-        /// <param name="id">Identificador de la aplicación a consultar</param>
-        /// <returns>Aplicación con los datos cargados desde la base de datos o null si no lo pudo encontrar</returns>
-        [HttpGet("{id:int}")]
-        public override Application Read(int id)
-        {
-            try
-            {
-                LogInfo("Leer la aplicación " + id);
-                Application application = _business.Read(new() { Id = id });
-                if (application != null)
-                {
-                    return application;
-                }
-                else
-                {
-                    LogInfo("Aplicación " + id + " no encontrada");
-                    Response.StatusCode = 404;
-                    return new Application();
-                }
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-        }
-
-        /// <summary>
-        /// Inserta una aplicación en la base de datos
-        /// </summary>
-        /// <param name="entity">Aplicación a insertar</param>
-        /// <returns>Aplicación insertada con el id generado por la base de datos</returns>
-        [HttpPost]
-        public override Application Insert([FromBody] Application entity)
-        {
-            try
-            {
-                LogInfo("Insertar la aplicación " + entity.Id);
-                return _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-        }
-
-        /// <summary>
-        /// Actualiza una aplicación en la base de datos
-        /// </summary>
-        /// <param name="entity">Aplicación a actualizar</param>
-        /// <returns>Aplicación actualizada</returns>
-        [HttpPut]
-        public override Application Update([FromBody] Application entity)
-        {
-            try
-            {
-                LogInfo("Actualizar la aplicación " + entity.Id);
-                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-        }
-
-        /// <summary>
-        /// Elimina una aplicación de la base de datos
-        /// </summary>
-        /// <param name="id">Aplicación a eliminar</param>
-        /// <returns>Aplicación eliminada</returns>
-        [HttpDelete("{id:int}")]
-        public override Application Delete(int id)
-        {
-            try
-            {
-                LogInfo("Actualizar la aplicación " + id);
-                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Application();
-            }
-        }
-
-        /// <summary>
-        /// Trae un listado de roles asignados a una aplicación desde la base de datos
-        /// </summary>
-        /// <param name="filters">Filtros aplicados a la consulta</param>
-        /// <param name="orders">Ordenamientos aplicados a la base de datos</param>
-        /// <param name="limit">Límite de registros a traer</param>
-        /// <param name="offset">Corrimiento desde el que se cuenta el número de registros</param>
-        /// <param name="application">Aplicación a la que se le consultan los roles asignados</param>
-        /// <returns>Listado de roles asignados a la aplicación</returns>
-        [HttpGet("{application:int}/role")]
-        public ListResult<Role> ListRoles(string? filters, string? orders, int limit, int offset, int application)
-        {
-            try
-            {
-                LogInfo("Listar los roles asignados a la aplicación " + application);
-                return ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
-            }
+            return new ListResult<Role>(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -262,27 +84,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los roles no asignados a la aplicación " + application);
+                LogInfo("List roles not related to app " + application);
                 return ((IBusinessApplication)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Role>(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -296,27 +114,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Asigna el rol " + role.Id + " a la aplicación " + application);
+                LogInfo("Insert role " + role.Id + " to app " + application);
                 return ((IBusinessApplication)_business).InsertRole(role, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -330,27 +144,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Elimina el rol " + role + " de la aplicación " + application);
+                LogInfo("Delete role " + role + " to app " + application);
                 return ((IBusinessApplication)_business).DeleteRole(new() { Id = role }, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }

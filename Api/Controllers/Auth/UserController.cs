@@ -47,184 +47,6 @@ namespace Api.Controllers.Auth
 
         #region Methods
         /// <summary>
-        /// Trae un listado de usuarios desde la base de datos
-        /// </summary>
-        /// <param name="filters">Filtros aplicados a la consulta</param>
-        /// <param name="orders">Ordenamientos aplicados a la base de datos</param>
-        /// <param name="limit">Límite de registros a traer</param>
-        /// <param name="offset">Corrimiento desde el que se cuenta el número de registros</param>
-        /// <returns>Listado de usuarios</returns>
-        [HttpGet]
-        public override ListResult<User> List(string? filters, string? orders, int limit, int offset)
-        {
-            try
-            {
-                LogInfo("Leer listado de usuarios");
-                return _business.List(filters ?? "", orders ?? "", limit, offset);
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<User>(new List<User>(), 0);
-            }
-        }
-
-        /// <summary>
-        /// Consulta un usuario dado su identificador
-        /// </summary>
-        /// <param name="id">Usuario a consultar</param>
-        /// <returns>Usuario con los datos cargados desde la base de datos o null si no lo pudo encontrar</returns>
-        [HttpGet("{id:int}")]
-        public override User Read(int id)
-        {
-            try
-            {
-                LogInfo("Leer el usuario " + id);
-                User user = _business.Read(new() { Id = id });
-                if (user != null)
-                {
-                    return user;
-                }
-                else
-                {
-                    LogInfo("Usuario " + id + " no encontrado");
-                    Response.StatusCode = 404;
-                    return new User();
-                }
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
-            }
-        }
-
-        /// <summary>
-        /// Inserta un usuario en la base de datos
-        /// </summary>
-        /// <param name="entity">Usuario a insertar</param>
-        /// <returns>Usuario insertado con el id generado por la base de datos</returns>
-        [HttpPost]
-        public override User Insert([FromBody] User entity)
-        {
-            try
-            {
-                LogInfo("Insertar el usuario " + entity.Id);
-                return _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
-            }
-        }
-
-        /// <summary>
-        /// Actualiza un usuario en la base de datos
-        /// </summary>
-        /// <param name="entity">Usuario a actualizar</param>
-        /// <returns>Usuario actualizado</returns>
-        [HttpPut]
-        public override User Update([FromBody] User entity)
-        {
-            try
-            {
-                LogInfo("Actualizar el usuario " + entity.Id);
-                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
-            }
-        }
-
-        /// <summary>
-        /// Elimina un usuario de la base de datos
-        /// </summary>
-        /// <param name="id">Usuario a eliminar</param>
-        /// <returns>Usuario eliminado</returns>
-        [HttpDelete("{id:int}")]
-        public override User Delete(int id)
-        {
-            try
-            {
-                LogInfo("Actualizar el usuario " + id);
-                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
-            }
-            catch (PersistentException e)
-            {
-                LogError(e, "P");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (BusinessException e)
-            {
-                LogError(e, "B");
-                Response.StatusCode = 500;
-                return new User();
-            }
-            catch (Exception e)
-            {
-                LogError(e, "A");
-                Response.StatusCode = 500;
-                return new User();
-            }
-        }
-
-        /// <summary>
         /// Consulta un usuario dado su login y contraseña
         /// </summary>
         /// <param name="data">Usuario y contraseña del usaurio</param>
@@ -235,7 +57,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Inicio de sesión para el login " + data.Login);
+                LogInfo("Login for user " + data.Login);
                 User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                 if (user.Id != 0)
                 {
@@ -267,21 +89,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -295,7 +113,7 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Recuperación de contraseña para el login " + login);
+                LogInfo("Recovery password for login " + login);
                 User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
                 if (user.Id != 0)
                 {
@@ -337,21 +155,17 @@ namespace Api.Controllers.Auth
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new LoginResponse();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new LoginResponse();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new LoginResponse();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -380,7 +194,7 @@ namespace Api.Controllers.Auth
                     User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
                     if (user.Id != 0 && user.Id == id)
                     {
-                        LogInfo("Actualiza el password del usuario " + user.Id);
+                        LogInfo("Update password of user " + user.Id);
                         _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 });
                         //Enviar notificación
                         try
@@ -451,27 +265,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los roles asignados al usuario " + user);
+                LogInfo("List roles related to user " + user);
                 return ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Role>(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -488,27 +298,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Listar los roles no asignados al usuario " + user);
+                LogInfo("List roles not related to user " + user);
                 return ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new ListResult<Role>(new List<Role>(), 0);
             }
+            Response.StatusCode = 500;
+            return new ListResult<Role>(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -522,27 +328,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Asigna el rol " + role.Id + " al usuario " + user);
+                LogInfo("Insert role " + role.Id + " to user " + user);
                 return ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
 
         /// <summary>
@@ -556,27 +358,23 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Elimina el rol " + role + " del usuario " + user);
+                LogInfo("Delete role " + role + " to user " + user);
                 return ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
                 LogError(e, "P");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (BusinessException e)
             {
                 LogError(e, "B");
-                Response.StatusCode = 500;
-                return new Role();
             }
             catch (Exception e)
             {
                 LogError(e, "A");
-                Response.StatusCode = 500;
-                return new Role();
             }
+            Response.StatusCode = 500;
+            return new();
         }
         #endregion
     }

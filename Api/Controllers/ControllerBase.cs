@@ -1,8 +1,10 @@
 using Business;
 using Business.Dto;
+using Business.Exceptions;
 using Business.Noti;
 using Dal;
 using Dal.Dto;
+using Dal.Exceptions;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +17,7 @@ namespace Api.Controllers
     /// <summary>
     /// Clase base de los controladores del api
     /// </summary>
-    public abstract class ControllerBase<T> : ControllerBase where T : Entities.EntityBase
+    public abstract class ControllerBase<T> : ControllerBase where T : Entities.EntityBase, new()
     {
         #region Attributes
         /// <summary>
@@ -65,35 +67,157 @@ namespace Api.Controllers
         /// <param name="limit">Límite de registros a traer</param>
         /// <param name="offset">Corrimiento desde el que se cuenta el número de registros</param>
         /// <returns>Listado de entidades</returns>
-        public abstract ListResult<T> List(string? filters, string? orders, int limit, int offset);
+        [HttpGet]
+        public ListResult<T> List(string? filters, string? orders, int limit, int offset)
+        {
+            try
+            {
+                LogInfo("Get " + typeof(T).Name + " list");
+                return _business.List(filters ?? "", orders ?? "", limit, offset);
+            }
+            catch (PersistentException e)
+            {
+                LogError(e, "P");
+            }
+            catch (BusinessException e)
+            {
+                LogError(e, "B");
+            }
+            catch (Exception e)
+            {
+                LogError(e, "A");
+            }
+            Response.StatusCode = 500;
+            return new ListResult<T>(new List<T>(), 0);
+        }
 
         /// <summary>
         /// Consulta una entidad dado su identificador
         /// </summary>
         /// <param name="entity">Entidad a consultar</param>
         /// <returns>Entidad con los datos cargados desde la base de datos o null si no lo pudo encontrar</returns>
-        public abstract T Read(int id);
+        [HttpGet("{id:int}")]
+        public T Read(int id)
+        {
+            try
+            {
+                LogInfo("Get " + typeof(T).Name + " with id = " + id);
+                T entity = _business.Read(new T() { Id = id });
+                if (entity.Id != 0)
+                {
+                    return entity;
+                }
+                else
+                {
+                    LogInfo(typeof(T).Name + " with id = " + id + " not found");
+                    Response.StatusCode = 404;
+                    return new();
+                }
+            }
+            catch (PersistentException e)
+            {
+                LogError(e, "P");
+            }
+            catch (BusinessException e)
+            {
+                LogError(e, "B");
+            }
+            catch (Exception e)
+            {
+                LogError(e, "A");
+            }
+            Response.StatusCode = 500;
+            return new();
+        }
 
         /// <summary>
         /// Inserta una entidad en la base de datos
         /// </summary>
         /// <param name="entity">Entidad a insertar</param>
         /// <returns>Entidad insertada con el id generado por la base de datos</returns>
-        public abstract T Insert(T entity);
+        [HttpPost]
+        public T Insert(T entity)
+        {
+            try
+            {
+                entity = _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("Inserted " + typeof(T).Name + " with id = " + entity.Id);
+                return entity;
+            }
+            catch (PersistentException e)
+            {
+                LogError(e, "P");
+            }
+            catch (BusinessException e)
+            {
+                LogError(e, "B");
+            }
+            catch (Exception e)
+            {
+                LogError(e, "A");
+            }
+            Response.StatusCode = 500;
+            return new();
+        }
 
         /// <summary>
         /// Actualiza una entidad en la base de datos
         /// </summary>
         /// <param name="entity">entidad a actualizar</param>
         /// <returns>Entidad actualizada</returns>
-        public abstract T Update(T entity);
+        [HttpPut]
+        public T Update(T entity)
+        {
+            try
+            {
+                LogInfo("Update " + typeof(T).Name + " with id = " + entity.Id);
+                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+            }
+            catch (PersistentException e)
+            {
+                LogError(e, "P");
+            }
+            catch (BusinessException e)
+            {
+                LogError(e, "B");
+            }
+            catch (Exception e)
+            {
+                LogError(e, "A");
+            }
+            Response.StatusCode = 500;
+            return new();
+        }
 
         /// <summary>
         /// Elimina una entidad de la base de datos
         /// </summary>
         /// <param name="entity">Entidad a eliminar</param>
         /// <returns>Entidad eliminado</returns>
-        public abstract T Delete(int id);
+        [HttpDelete]
+        public T Delete(int id)
+        {
+            try
+            {
+                LogInfo("Delete " + typeof(T).Name + " with id = " + id);
+                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+            }
+            catch (PersistentException e)
+            {
+                LogError(e, "P");
+            }
+            catch (BusinessException e)
+            {
+                LogError(e, "B");
+            }
+            catch (Exception e)
+            {
+                LogError(e, "A");
+            }
+            Response.StatusCode = 500;
+            return new();
+        }
+
 
         /// <summary>
         /// Guarda un registro de auditoría de tipo Información de los llamados al componente
