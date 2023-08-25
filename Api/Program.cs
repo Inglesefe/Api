@@ -66,7 +66,7 @@ builder.Services.AddScoped<IBusiness<Plan>>(x => new BusinessPlan(new Persistent
 builder.Services.AddScoped<IBusiness<Notification>>(x => new BusinessNotification(new PersistentNotification(connection)));
 builder.Services.AddScoped<IBusiness<Template>>(x => new BusinessTemplate(new PersistentTemplate(connection)));
 builder.Services.AddScoped<IPersistentBase<LogComponent>>(x => new PersistentLogComponent(connection));
-builder.Services.AddSingleton<IAuthorizationHandler, DbAuthorizationHandler>(x => new DbAuthorizationHandler(new BusinessApplication(new PersistentApplication(connection))));
+builder.Services.AddScoped<IAuthorizationHandler, DbAuthorizationHandler>(x => new DbAuthorizationHandler(new BusinessApplication(new PersistentApplication(connection))));
 
 var app = builder.Build();
 app.UseSwagger();
