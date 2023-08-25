@@ -122,32 +122,25 @@ namespace Api.Controllers.Auth
                 {
                     string crypto = Crypto.Encrypt(user.Id + "~" + user.Login + "~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                     //Enviar notificación
-                    try
+                    SmtpConfig smtpConfig = new()
                     {
-                        SmtpConfig smtpConfig = new()
-                        {
-                            From = _configuration["Smtp:From"] ?? "",
-                            Host = _configuration["Smtp:Host"] ?? "",
-                            Password = _configuration["Smtp:Password"] ?? "",
-                            Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                            Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                            Username = _configuration["Smtp:Username"] ?? ""
-                        };
-                        Template template = _templateError.Read(new() { Id = 2 }, _connection);
-                        template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
-                        Notification notification = new()
-                        {
-                            To = login,
-                            Subject = "Cambio de contraseña - Golden Web",
-                            User = 1,
-                            Content = template.Content
-                        };
-                        BusinessNotification.SendNotification(notification, smtpConfig);
-                    }
-                    catch
+                        From = _configuration["Smtp:From"] ?? "",
+                        Host = _configuration["Smtp:Host"] ?? "",
+                        Password = _configuration["Smtp:Password"] ?? "",
+                        Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
+                        Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
+                        Username = _configuration["Smtp:Username"] ?? ""
+                    };
+                    Template template = _templateError.Read(new() { Id = 2 }, _connection);
+                    template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
+                    Notification notification = new()
                     {
-                        //No hacer nada si no logra enviar notificación
-                    }
+                        To = login,
+                        Subject = "Cambio de contraseña - Golden Web",
+                        User = 1,
+                        Content = template.Content
+                    };
+                    BusinessNotification.SendNotification(notification, smtpConfig);
                     return new() { Valid = true, Token = crypto };
                 }
                 else
@@ -200,32 +193,25 @@ namespace Api.Controllers.Auth
                         LogInfo("Update password of user " + user.Id);
                         _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 }, _connection);
                         //Enviar notificación
-                        try
+                        SmtpConfig smtpConfig = new()
                         {
-                            SmtpConfig smtpConfig = new()
-                            {
-                                From = _configuration["Smtp:From"] ?? "",
-                                Host = _configuration["Smtp:Host"] ?? "",
-                                Password = _configuration["Smtp:Password"] ?? "",
-                                Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                                Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                                Username = _configuration["Smtp:Username"] ?? ""
-                            };
-                            Template template = _templateError.Read(new() { Id = 3 }, _connection);
-                            template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
-                            Notification notification = new()
-                            {
-                                To = login,
-                                Subject = "Cambio de contraseña - Golden Web",
-                                User = 1,
-                                Content = template.Content
-                            };
-                            BusinessNotification.SendNotification(notification, smtpConfig);
-                        }
-                        catch
+                            From = _configuration["Smtp:From"] ?? "",
+                            Host = _configuration["Smtp:Host"] ?? "",
+                            Password = _configuration["Smtp:Password"] ?? "",
+                            Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
+                            Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
+                            Username = _configuration["Smtp:Username"] ?? ""
+                        };
+                        Template template = _templateError.Read(new() { Id = 3 }, _connection);
+                        template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
+                        Notification notification = new()
                         {
-                            //No hacer nada si no logra enviar notificación
-                        }
+                            To = login,
+                            Subject = "Cambio de contraseña - Golden Web",
+                            User = 1,
+                            Content = template.Content
+                        };
+                        BusinessNotification.SendNotification(notification, smtpConfig);
                         return new() { Success = true, Message = "Contraseña cambiada con éxito" };
                     }
                     else
