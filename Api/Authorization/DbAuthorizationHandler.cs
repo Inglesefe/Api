@@ -41,7 +41,7 @@ namespace Api.Authorization
         /// <returns>Si el usuario es válido o no</returns>
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, DbAuthorizationRequirement requirement)
         {
-            BusinessApplication businness = new BusinessApplication(new PersistentApplication(new MySqlConnection(_configuration.GetConnectionString("golden"))));
+            BusinessApplication businness = new(new PersistentApplication());
             Dictionary<string, int> applications = new()
             {
                 { "Application", 1 },
@@ -61,7 +61,7 @@ namespace Api.Authorization
             if (ctx != null)
             {
                 string controller = (string)(ctx.Request.RouteValues["controller"] ?? "");
-                ListResult<Role> roles = businness.ListRoles("", "", 100, 0, new() { Id = applications[controller] });
+                ListResult<Role> roles = businness.ListRoles("", "", 100, 0, new() { Id = applications[controller] }, new MySqlConnection(_configuration.GetConnectionString("golden")));
                 if (roles.Total > 0)
                 {
                     string rolesInToken = context.User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value ?? "";

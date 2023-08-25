@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using System.Data;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -49,6 +50,7 @@ namespace Api.Test.Config
             Mock<IBusiness<Country>> mockBusiness = new();
             Mock<IPersistentBase<LogComponent>> mockLog = new();
             Mock<IBusiness<Template>> mockTemplate = new();
+            Mock<IDbConnection> mockConnection = new();
 
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
@@ -82,16 +84,16 @@ namespace Api.Test.Config
                 new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
             };
 
-            mockBusiness.Setup(p => p.List("idcountry = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idcountry = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Country>(countries.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idpais = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idpais = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<Country>()))
-                .Returns((Country country) => countries.Find(x => x.Id == country.Id) ?? new Country());
+            mockBusiness.Setup(p => p.Read(It.IsAny<Country>(), It.IsAny<IDbConnection>()))
+                .Returns((Country country, IDbConnection connection) => countries.Find(x => x.Id == country.Id) ?? new Country());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Country>(), It.IsAny<User>()))
-                .Returns((Country country, User user) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Country>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Country country, User user, IDbConnection connection) =>
                 {
                     if (countries.Exists(x => x.Code == country.Code))
                     {
@@ -105,25 +107,25 @@ namespace Api.Test.Config
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<Country>(), It.IsAny<User>()))
-                .Returns((Country country, User user) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<Country>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Country country, User user, IDbConnection connection) =>
                 {
                     countries.Where(x => x.Id == country.Id).ToList().ForEach(x => x.Code = country.Code);
                     return country;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<Country>(), It.IsAny<User>()))
-                .Returns((Country city, User user) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Country>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Country city, User user, IDbConnection connection) =>
                 {
                     countries = countries.Where(x => x.Id != city.Id).ToList();
                     return city;
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
 
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
 
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
             {
                 ControllerContext = _controllerContext
             };

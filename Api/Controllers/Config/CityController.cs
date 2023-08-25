@@ -5,6 +5,7 @@ using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace Api.Controllers.Config
 {
@@ -24,11 +25,13 @@ namespace Api.Controllers.Config
         /// <param name="business">Capa de negocio de ciudades</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de notificaciones de error</param>
-        public CityController(IConfiguration configuration, IBusiness<City> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
+        /// <param name="connection">Conexión a la base de datos</param>
+        public CityController(IConfiguration configuration, IBusiness<City> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
                   configuration,
                   business,
                   log,
-                  templateError)
+                  templateError,
+                  connection)
         { }
         #endregion
     }

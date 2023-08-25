@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using System.Data;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -48,6 +49,7 @@ namespace Api.Test.Noti
             Mock<IBusiness<Notification>> mockBusiness = new();
             Mock<IPersistentBase<LogComponent>> mockLog = new();
             Mock<IBusiness<Template>> mockTemplate = new();
+            Mock<IDbConnection> mockConnection = new();
 
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
@@ -77,27 +79,27 @@ namespace Api.Test.Noti
                 new Template() { Id = 1, Name = "Plantilla de prueba", Content = "<h1>Esta es una prueba hecha por #{user}#</h1>" }
             };
 
-            mockBusiness.Setup(p => p.List("idnotification = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idnotification = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Notification>(notifications.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idnotificacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idnotificacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<Notification>()))
-                .Returns((Notification notification) => notifications.Find(x => x.Id == notification.Id) ?? new Notification());
+            mockBusiness.Setup(p => p.Read(It.IsAny<Notification>(), It.IsAny<IDbConnection>()))
+                .Returns((Notification notification, IDbConnection connection) => notifications.Find(x => x.Id == notification.Id) ?? new Notification());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Notification>(), It.IsAny<User>()))
-                .Returns((Notification notification, User user) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Notification>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Notification notification, User user, IDbConnection connection) =>
                 {
                     notification.Id = notifications.Count + 1;
                     notifications.Add(notification);
                     return notification;
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
 
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
 
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
             {
                 ControllerContext = _controllerContext
             };
