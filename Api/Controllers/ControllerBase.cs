@@ -194,7 +194,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="entity">Entidad a eliminar</param>
         /// <returns>Entidad eliminado</returns>
-        [HttpDelete]
+        [HttpDelete("{id:int}")]
         public T Delete(int id)
         {
             try
