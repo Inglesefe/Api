@@ -51,28 +51,27 @@ builder.Services
         };
     }
     );
-IDbConnection connection = new MySqlConnection(builder.Configuration.GetConnectionString("golden"));
-
-builder.Services.AddScoped<IBusinessApplication>(x => new BusinessApplication(new PersistentApplication(connection)));
-builder.Services.AddScoped<IBusinessRole>(x => new BusinessRole(new PersistentRole(connection)));
-builder.Services.AddScoped<IBusinessUser>(x => new BusinessUser(new PersistentUser(connection)));
-builder.Services.AddScoped<IBusiness<City>>(x => new BusinessCity(new PersistentCity(connection)));
-builder.Services.AddScoped<IBusiness<Country>>(x => new BusinessCountry(new PersistentCountry(connection)));
-builder.Services.AddScoped<IBusiness<IdentificationType>>(x => new BusinessIdentificationType(new PersistentIdentificationType(connection)));
-builder.Services.AddScoped<IBusiness<IncomeType>>(x => new BusinessIncomeType(new PersistentIncomeType(connection)));
-builder.Services.AddScoped<IBusiness<Office>>(x => new BusinessOffice(new PersistentOffice(connection)));
-builder.Services.AddScoped<IBusiness<Parameter>>(x => new BusinessParameter(new PersistentParameter(connection)));
-builder.Services.AddScoped<IBusiness<Plan>>(x => new BusinessPlan(new PersistentPlan(connection)));
-builder.Services.AddScoped<IBusiness<Notification>>(x => new BusinessNotification(new PersistentNotification(connection)));
-builder.Services.AddScoped<IBusiness<Template>>(x => new BusinessTemplate(new PersistentTemplate(connection)));
-builder.Services.AddScoped<IPersistentBase<LogComponent>>(x => new PersistentLogComponent(connection));
-builder.Services.AddSingleton<IAuthorizationHandler, DbAuthorizationHandler>(x => new DbAuthorizationHandler(new BusinessApplication(new PersistentApplication(connection))));
+builder.Services.AddScoped<IDbConnection>(x => new MySqlConnection(builder.Configuration.GetConnectionString("golden")));
+builder.Services.AddScoped<IBusinessApplication>(x => new BusinessApplication(new PersistentApplication()));
+builder.Services.AddScoped<IBusinessRole>(x => new BusinessRole(new PersistentRole()));
+builder.Services.AddScoped<IBusinessUser>(x => new BusinessUser(new PersistentUser()));
+builder.Services.AddScoped<IBusiness<City>>(x => new BusinessCity(new PersistentCity()));
+builder.Services.AddScoped<IBusiness<Country>>(x => new BusinessCountry(new PersistentCountry()));
+builder.Services.AddScoped<IBusiness<IdentificationType>>(x => new BusinessIdentificationType(new PersistentIdentificationType()));
+builder.Services.AddScoped<IBusiness<IncomeType>>(x => new BusinessIncomeType(new PersistentIncomeType()));
+builder.Services.AddScoped<IBusiness<Office>>(x => new BusinessOffice(new PersistentOffice()));
+builder.Services.AddScoped<IBusiness<Parameter>>(x => new BusinessParameter(new PersistentParameter()));
+builder.Services.AddScoped<IBusiness<Plan>>(x => new BusinessPlan(new PersistentPlan()));
+builder.Services.AddScoped<IBusiness<Notification>>(x => new BusinessNotification(new PersistentNotification()));
+builder.Services.AddScoped<IBusiness<Template>>(x => new BusinessTemplate(new PersistentTemplate()));
+builder.Services.AddScoped<IPersistentBase<LogComponent>>(x => new PersistentLogComponent());
+builder.Services.AddSingleton<IAuthorizationHandler, DbAuthorizationHandler>(x => new DbAuthorizationHandler(builder.Configuration));
 
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-app.UseCors();
+app.UseCors(x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod());
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -39,6 +39,11 @@ namespace Api.Controllers
         /// Administrador de plantilla de errores
         /// </summary>
         protected readonly IBusiness<Template> _templateError;
+
+        /// <summary>
+        /// Conexión a la base de datos
+        /// </summary>
+        protected readonly IDbConnection _connection;
         #endregion
 
         #region Constructors
@@ -49,12 +54,13 @@ namespace Api.Controllers
         /// <param name="business">Capar de negocio asociada a la entidad</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de notificaciones de error</param>
-        protected ControllerBase(IConfiguration configuration, IBusiness<T> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError)
+        protected ControllerBase(IConfiguration configuration, IBusiness<T> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection)
         {
             _configuration = configuration;
             _log = log;
             _business = business;
             _templateError = templateError;
+            _connection = connection;
         }
         #endregion
 
@@ -73,7 +79,7 @@ namespace Api.Controllers
             try
             {
                 LogInfo("Get " + typeof(T).Name + " list");
-                return _business.List(filters ?? "", orders ?? "", limit, offset);
+                return _business.List(filters ?? "", orders ?? "", limit, offset, _connection);
             }
             catch (PersistentException e)
             {
@@ -102,7 +108,7 @@ namespace Api.Controllers
             try
             {
                 LogInfo("Get " + typeof(T).Name + " with id = " + id);
-                T entity = _business.Read(new T() { Id = id });
+                T entity = _business.Read(new T() { Id = id }, _connection);
                 if (entity.Id != 0)
                 {
                     return entity;
@@ -140,7 +146,7 @@ namespace Api.Controllers
         {
             try
             {
-                entity = _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                entity = _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
                 LogInfo("Inserted " + typeof(T).Name + " with id = " + entity.Id);
                 return entity;
             }
@@ -171,7 +177,7 @@ namespace Api.Controllers
             try
             {
                 LogInfo("Update " + typeof(T).Name + " with id = " + entity.Id);
-                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {
@@ -200,7 +206,7 @@ namespace Api.Controllers
             try
             {
                 LogInfo("Delete " + typeof(T).Name + " with id = " + id);
-                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {
@@ -243,8 +249,7 @@ namespace Api.Controllers
                     Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
                     Description = info,
                     User = userid
-                }
-                );
+                }, _connection);
             }
         }
 
@@ -279,8 +284,7 @@ namespace Api.Controllers
                 Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
                 Description = desc.ToString(),
                 User = userid
-            }
-            );
+            }, _connection);
             try
             {
                 SmtpConfig smtpConfig = new()
@@ -292,7 +296,7 @@ namespace Api.Controllers
                     Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
                     Username = _configuration["Smtp:Username"] ?? ""
                 };
-                Template template = _templateError.Read(new() { Id = 1 });
+                Template template = _templateError.Read(new() { Id = 1 }, _connection);
                 template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "message", desc.ToString() }, { "id", l.Id.ToString() } });
                 Notification notification = new()
                 {
