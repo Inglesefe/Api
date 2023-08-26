@@ -9,6 +9,7 @@ using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace Api.Controllers.Auth
 {
@@ -28,11 +29,13 @@ namespace Api.Controllers.Auth
         /// <param name="business">Capa de negocio de aplicaciones</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de plantilla de errores</param>
-        public ApplicationController(IConfiguration configuration, IBusinessApplication business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
+        /// <param name="connection">Conexión a la base de datos</param>
+        public ApplicationController(IConfiguration configuration, IBusinessApplication business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
                   configuration,
                   business,
                   log,
-                  templateError)
+                  templateError,
+                  connection)
         { }
         #endregion
 
@@ -52,7 +55,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("List roles related to app " + application);
-                return ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
+                return ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application }, _connection);
             }
             catch (PersistentException e)
             {
@@ -85,7 +88,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("List roles not related to app " + application);
-                return ((IBusinessApplication)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
+                return ((IBusinessApplication)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application }, _connection);
             }
             catch (PersistentException e)
             {
@@ -115,7 +118,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Insert role " + role.Id + " to app " + application);
-                return ((IBusinessApplication)_business).InsertRole(role, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessApplication)_business).InsertRole(role, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {
@@ -145,7 +148,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Delete role " + role + " to app " + application);
-                return ((IBusinessApplication)_business).DeleteRole(new() { Id = role }, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessApplication)_business).DeleteRole(new() { Id = role }, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {

@@ -14,6 +14,7 @@ using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -37,11 +38,13 @@ namespace Api.Controllers.Auth
         /// <param name="business">Capa de negocio de usuarios</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de plantilla de errores</param>
-        public UserController(IConfiguration configuration, IBusinessUser business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError) : base(
+        /// <param name="connection">Conexión a la base de datos</param>
+        public UserController(IConfiguration configuration, IBusinessUser business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
             configuration,
             business,
             log,
-            templateError)
+            templateError,
+            connection)
         { }
         #endregion
 
@@ -58,13 +61,13 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Login for user " + data.Login);
-                User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
+                User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", _connection);
                 if (user.Id != 0)
                 {
                     var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? ""));
                     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-                    IList<Role> roles = ((IBusinessUser)_business).ListRoles("", "", 100, 0, user).List;
+                    IList<Role> roles = ((IBusinessUser)_business).ListRoles("", "", 100, 0, user, _connection).List;
 
                     var claims = new[] {
                         new Claim("id", user.Id.ToString()),
@@ -114,37 +117,30 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Recovery password for login " + login);
-                User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
+                User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login }, _connection);
                 if (user.Id != 0)
                 {
                     string crypto = Crypto.Encrypt(user.Id + "~" + user.Login + "~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                     //Enviar notificación
-                    try
+                    SmtpConfig smtpConfig = new()
                     {
-                        SmtpConfig smtpConfig = new()
-                        {
-                            From = _configuration["Smtp:From"] ?? "",
-                            Host = _configuration["Smtp:Host"] ?? "",
-                            Password = _configuration["Smtp:Password"] ?? "",
-                            Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                            Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                            Username = _configuration["Smtp:Username"] ?? ""
-                        };
-                        Template template = _templateError.Read(new() { Id = 2 });
-                        template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
-                        Notification notification = new()
-                        {
-                            To = login,
-                            Subject = "Cambio de contraseña - Golden Web",
-                            User = 1,
-                            Content = template.Content
-                        };
-                        BusinessNotification.SendNotification(notification, smtpConfig);
-                    }
-                    catch
+                        From = _configuration["Smtp:From"] ?? "",
+                        Host = _configuration["Smtp:Host"] ?? "",
+                        Password = _configuration["Smtp:Password"] ?? "",
+                        Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
+                        Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
+                        Username = _configuration["Smtp:Username"] ?? ""
+                    };
+                    Template template = _templateError.Read(new() { Id = 2 }, _connection);
+                    template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
+                    Notification notification = new()
                     {
-                        //No hacer nada si no logra enviar notificación
-                    }
+                        To = login,
+                        Subject = "Cambio de contraseña - Golden Web",
+                        User = 1,
+                        Content = template.Content
+                    };
+                    BusinessNotification.SendNotification(notification, smtpConfig);
                     return new() { Valid = true, Token = crypto };
                 }
                 else
@@ -191,38 +187,31 @@ namespace Api.Controllers.Auth
                 }
                 else
                 {
-                    User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
+                    User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login }, _connection);
                     if (user.Id != 0 && user.Id == id)
                     {
                         LogInfo("Update password of user " + user.Id);
-                        _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 });
+                        _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 }, _connection);
                         //Enviar notificación
-                        try
+                        SmtpConfig smtpConfig = new()
                         {
-                            SmtpConfig smtpConfig = new()
-                            {
-                                From = _configuration["Smtp:From"] ?? "",
-                                Host = _configuration["Smtp:Host"] ?? "",
-                                Password = _configuration["Smtp:Password"] ?? "",
-                                Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                                Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                                Username = _configuration["Smtp:Username"] ?? ""
-                            };
-                            Template template = _templateError.Read(new() { Id = 3 });
-                            template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
-                            Notification notification = new()
-                            {
-                                To = login,
-                                Subject = "Cambio de contraseña - Golden Web",
-                                User = 1,
-                                Content = template.Content
-                            };
-                            BusinessNotification.SendNotification(notification, smtpConfig);
-                        }
-                        catch
+                            From = _configuration["Smtp:From"] ?? "",
+                            Host = _configuration["Smtp:Host"] ?? "",
+                            Password = _configuration["Smtp:Password"] ?? "",
+                            Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
+                            Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
+                            Username = _configuration["Smtp:Username"] ?? ""
+                        };
+                        Template template = _templateError.Read(new() { Id = 3 }, _connection);
+                        template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
+                        Notification notification = new()
                         {
-                            //No hacer nada si no logra enviar notificación
-                        }
+                            To = login,
+                            Subject = "Cambio de contraseña - Golden Web",
+                            User = 1,
+                            Content = template.Content
+                        };
+                        BusinessNotification.SendNotification(notification, smtpConfig);
                         return new() { Success = true, Message = "Contraseña cambiada con éxito" };
                     }
                     else
@@ -266,7 +255,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("List roles related to user " + user);
-                return ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                return ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user }, _connection);
             }
             catch (PersistentException e)
             {
@@ -299,7 +288,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("List roles not related to user " + user);
-                return ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                return ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user }, _connection);
             }
             catch (PersistentException e)
             {
@@ -329,7 +318,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Insert role " + role.Id + " to user " + user);
-                return ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {
@@ -359,7 +348,7 @@ namespace Api.Controllers.Auth
             try
             {
                 LogInfo("Delete role " + role + " to user " + user);
-                return ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                return ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
             }
             catch (PersistentException e)
             {

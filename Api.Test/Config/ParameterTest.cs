@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using System.Data;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -49,6 +50,7 @@ namespace Api.Test.Config
             Mock<IBusiness<Parameter>> mockBusiness = new();
             Mock<IPersistentBase<LogComponent>> mockLog = new();
             Mock<IBusiness<Template>> mockTemplate = new();
+            Mock<IDbConnection> mockConnection = new();
 
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
@@ -82,16 +84,16 @@ namespace Api.Test.Config
                 new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
             };
 
-            mockBusiness.Setup(p => p.List("idparameter = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idparameter = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Parameter>(parameters.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idparametro = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idparametro = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<Parameter>()))
-                .Returns((Parameter parameter) => parameters.Find(x => x.Id == parameter.Id) ?? new Parameter());
+            mockBusiness.Setup(p => p.Read(It.IsAny<Parameter>(), It.IsAny<IDbConnection>()))
+                .Returns((Parameter parameter, IDbConnection connection) => parameters.Find(x => x.Id == parameter.Id) ?? new Parameter());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Parameter>(), It.IsAny<User>()))
-                .Returns((Parameter parameter, User user) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Parameter>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Parameter parameter, User user, IDbConnection connection) =>
                 {
                     if (parameters.Exists(x => x.Name == parameter.Name))
                     {
@@ -105,25 +107,25 @@ namespace Api.Test.Config
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<Parameter>(), It.IsAny<User>()))
-                .Returns((Parameter parameter, User user) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<Parameter>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Parameter parameter, User user, IDbConnection connection) =>
                 {
                     parameters.Where(x => x.Id == parameter.Id).ToList().ForEach(x => x.Name = parameter.Name);
                     return parameter;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<Parameter>(), It.IsAny<User>()))
-                .Returns((Parameter parameter, User user) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Parameter>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Parameter parameter, User user, IDbConnection connection) =>
                 {
                     parameters = parameters.Where(x => x.Id != parameter.Id).ToList();
                     return parameter;
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
 
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
 
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
             {
                 ControllerContext = _controllerContext
             };

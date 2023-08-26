@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using System.Data;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -38,6 +39,11 @@ namespace Api.Test.Auth
         /// Contexto HTTP con que se conecta a los servicios Rest
         /// </summary>
         private readonly ControllerContext _controllerContext;
+
+        /// <summary>
+        /// Conexón falsa a la base ed datos
+        /// </summary>
+        private readonly IDbConnection connectionFake;
         #endregion
 
         #region Constructors
@@ -49,6 +55,7 @@ namespace Api.Test.Auth
             Mock<IBusinessRole> mockBusiness = new();
             Mock<IPersistentBase<LogComponent>> mockLog = new();
             Mock<IBusiness<Template>> mockTemplate = new();
+            Mock<IDbConnection> mockConnection = new();
 
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
@@ -110,16 +117,16 @@ namespace Api.Test.Auth
                 new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
             };
 
-            mockBusiness.Setup(p => p.List("idrole = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idrole = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Role>(roles.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idrol = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockBusiness.Setup(p => p.List("idrol = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<Role>()))
-                .Returns((Role role) => roles.Find(x => x.Id == role.Id) ?? new Role());
+            mockBusiness.Setup(p => p.Read(It.IsAny<Role>(), It.IsAny<IDbConnection>()))
+                .Returns((Role role, IDbConnection connection) => roles.Find(x => x.Id == role.Id) ?? new Role());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Role>(), It.IsAny<User>()))
-                .Returns((Role role, User user) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Role role, User user, IDbConnection connection) =>
                 {
                     if (roles.Exists(x => x.Name == role.Name))
                     {
@@ -133,38 +140,38 @@ namespace Api.Test.Auth
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<Role>(), It.IsAny<User>()))
-                .Returns((Role role, User user) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Role role, User user, IDbConnection connection) =>
                 {
                     roles.Where(x => x.Id == role.Id).ToList().ForEach(x => x.Name = role.Name);
                     return role;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<Role>(), It.IsAny<User>()))
-                .Returns((Role role, User user) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+                .Returns((Role role, User user, IDbConnection connection) =>
                 {
                     roles = roles.Where(x => x.Id != role.Id).ToList();
                     return role;
                 });
 
-            mockBusiness.Setup(p => p.ListApplications("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListApplications("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Application>(apps_roles.Where(x => x.Item2.Id == 1).Select(x => x.Item1).ToList(), 1));
 
-            mockBusiness.Setup(p => p.ListApplications("a.idapplication = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListApplications("a.idapplication = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<Application>(new List<Application>(), 0));
 
-            mockBusiness.Setup(p => p.ListApplications("idaplicacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListApplications("idaplicacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.ListNotApplications(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
-                .Returns((string filters, string orders, int limit, int offset, Role role) =>
+            mockBusiness.Setup(p => p.ListNotApplications(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
+                .Returns((string filters, string orders, int limit, int offset, Role role, IDbConnection connection) =>
                 {
                     List<Application> result = apps.Where(x => !apps_roles.Exists(y => y.Item2.Id == role.Id && y.Item1.Id == x.Id)).ToList();
                     return new ListResult<Application>(result, result.Count);
                 });
 
-            mockBusiness.Setup(p => p.InsertApplication(It.IsAny<Application>(), It.IsAny<Role>(), It.IsAny<User>())).
-                Returns((Application app, Role role, User user) =>
+            mockBusiness.Setup(p => p.InsertApplication(It.IsAny<Application>(), It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<IDbConnection>())).
+                Returns((Application app, Role role, User user, IDbConnection connection) =>
                 {
                     if (apps_roles.Exists(x => x.Item1.Id == app.Id && x.Item2.Id == role.Id))
                     {
@@ -177,24 +184,24 @@ namespace Api.Test.Auth
                     }
                 });
 
-            mockBusiness.Setup(p => p.ListUsers("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListUsers("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<User>(users_roles.Where(x => x.Item2.Id == 1).Select(x => x.Item1).ToList(), 1));
 
-            mockBusiness.Setup(p => p.ListUsers("u.iduser = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListUsers("u.iduser = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Returns(new ListResult<User>(new List<User>(), 0));
 
-            mockBusiness.Setup(p => p.ListUsers("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
+            mockBusiness.Setup(p => p.ListUsers("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.ListNotUsers(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>()))
-                .Returns((string filters, string orders, int limit, int offset, Role role) =>
+            mockBusiness.Setup(p => p.ListNotUsers(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Role>(), It.IsAny<IDbConnection>()))
+                .Returns((string filters, string orders, int limit, int offset, Role role, IDbConnection connection) =>
                 {
                     List<User> result = users.Where(x => !users_roles.Exists(y => y.Item2.Id == role.Id && y.Item1.Id == x.Id)).ToList();
                     return new ListResult<User>(result, result.Count);
                 });
 
-            mockBusiness.Setup(p => p.InsertUser(It.IsAny<User>(), It.IsAny<Role>(), It.IsAny<User>())).
-                Returns((User user, Role role, User user1) =>
+            mockBusiness.Setup(p => p.InsertUser(It.IsAny<User>(), It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<IDbConnection>())).
+                Returns((User user, Role role, User user1, IDbConnection connection) =>
                 {
                     if (users_roles.Exists(x => x.Item1.Id == user.Id && x.Item2.Id == role.Id))
                     {
@@ -207,11 +214,11 @@ namespace Api.Test.Auth
                     }
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>())).Returns((LogComponent log) => log);
+            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
 
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
+            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
 
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object)
+            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
             {
                 ControllerContext = _controllerContext
             };
