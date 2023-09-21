@@ -91,21 +91,21 @@ jobs:
       uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
       with:
         files: ${{ env.solution }}\deploy.yml
-        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://localhost:30101/change-password/
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://localhost/change-password/
 
     - name: Reemplazar variables test
       if: ${{ github.ref_name == 'test' }}
       uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
       with:
         files: ${{ env.solution }}\deploy.yml
-        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=31000,--portHttps--=31001,--urlChangePassword--=https://192.168.1.7:31101/change-password/
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=31000,--portHttps--=31001,--urlChangePassword--=https://192.168.1.34/change-password/
 
     - name: Reemplazar variables
       if: ${{ github.ref_name == 'main' }}
       uses: prabhakarareddygaddam-mcd/replace-action@1.0.0
       with:
         files: ${{ env.solution }}\deploy.yml
-        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://192.168.1.7:30101/change-password/
+        replacements: --version--=${{ env.version }},--environment--=${{ github.ref_name }},--portHttp--=30000,--portHttps--=30001,--urlChangePassword--=https://192.168.1.34/change-password/
 
     - name: Desplegar en Kubernetes
       run: kubectl apply -f ${{ github.workspace }}\${{ env.solution }}\deploy.yml

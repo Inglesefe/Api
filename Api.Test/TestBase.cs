@@ -96,7 +96,7 @@ namespace Api.Test
             mockParameter.Setup(p => p.List("name = 'SMTP_SSL'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_SSL", Value = "true" } }, 1));
             mockParameter.Setup(p => p.List("name = 'SMTP_USERNAME'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_USERNAME", Value = "soporte.sistemas@inglesefe.com" } }, 1));
             mockParameter.Setup(p => p.List("name = 'NOTIFICATION_TO'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "NOTIFICATION_TO", Value = "leandrobaena@gmail.com" } }, 1));
-            mockParameter.Setup(p => p.List("name = 'URL_CHANGE_PASS'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "URL_CHANGE_PASS", Value = "https://localhost/change_password" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'URL_CHANGE_PASS'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "URL_CHANGE_PASS", Value = "https://localhost/change_password/" } }, 1));
         }
         #endregion
     }
