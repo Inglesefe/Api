@@ -1,20 +1,12 @@
 ﻿using Api.Controllers.Config;
-using Business;
-using Dal;
+using Business.Config;
 using Dal.Dto;
 using Dal.Exceptions;
+using Entities.Admon;
 using Entities.Auth;
 using Entities.Config;
-using Entities.Log;
-using Entities.Noti;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Data;
-using System.Security.Claims;
-using System.Security.Principal;
 
 namespace Api.Test.Config
 {
@@ -22,54 +14,16 @@ namespace Api.Test.Config
     /// Realiza las pruebas sobre la api de oficinas
     /// </summary>
     [Collection("Test")]
-    public class OfficeTest
+    public class OfficeTest : TestBase<Office>
     {
-        #region Attributes
-        /// <summary>
-        /// Configuración de la aplicación de pruebas
-        /// </summary>
-        private readonly IConfiguration _configuration;
-
-        /// <summary>
-        /// Controlador API para los oficinas
-        /// </summary>
-        private readonly OfficeController _api;
-
-        /// <summary>
-        /// Contexto HTTP con que se conecta a los servicios Rest
-        /// </summary>
-        private readonly ControllerContext _controllerContext;
-        #endregion
-
         #region Constructors
         /// <summary>
         /// Inicializa la configuración de la prueba
         /// </summary>
-        public OfficeTest()
+        public OfficeTest() : base()
         {
-            Mock<IBusiness<Office>> mockBusiness = new();
-            Mock<IPersistentBase<LogComponent>> mockLog = new();
-            Mock<IBusiness<Template>> mockTemplate = new();
-            Mock<IDbConnection> mockConnection = new();
-
-            GenericIdentity identity = new("usuario", "prueba");
-            identity.AddClaim(new Claim("id", "1"));
-            _controllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-                {
-                    User = new ClaimsPrincipal(identity)
-                },
-                ActionDescriptor = new ControllerActionDescriptor()
-                {
-                    ControllerName = "OfficeTest",
-                    ActionName = "Test"
-                }
-            };
-            _configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", false, false)
-                .AddEnvironmentVariables()
-                .Build();
+            //Arrange
+            Mock<IBusinessOffice> mockBusiness = new();
 
             List<Office> offices = new()
             {
@@ -77,23 +31,30 @@ namespace Api.Test.Config
                 new Office() { Id = 2, Name = "Kennedy", Address = "Cl 56 sur" },
                 new Office() { Id = 3, Name = "Venecia", Address = "Puente" }
             };
-            List<Template> templates = new()
+            List<AccountExecutive> executives = new()
             {
-                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
-                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
-                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
+                new AccountExecutive() { Id = 1, Name = "Leandro Baena Torres", IdentificationType = new(){ Id = 1 }, Identification = "123456789" },
+                new AccountExecutive() { Id = 2, Name = "David Santiago Baena Barreto", IdentificationType = new(){ Id = 1 }, Identification = "987654321" },
+                new AccountExecutive() { Id = 3, Name = "Karol Ximena Baena Barreto", IdentificationType = new(){ Id = 1 }, Identification = "147852369" }
+            };
+            List<Tuple<Office, AccountExecutive>> executives_offices = new()
+            {
+                new Tuple<Office, AccountExecutive>(offices[0], executives[0]),
+                new Tuple<Office, AccountExecutive>(offices[0], executives[1]),
+                new Tuple<Office, AccountExecutive>(offices[1], executives[0]),
+                new Tuple<Office, AccountExecutive>(offices[1], executives[1])
             };
 
-            mockBusiness.Setup(p => p.List("o.idoffice = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idoffice = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Returns(new ListResult<Office>(offices.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idoficina = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idoficina = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<Office>(), It.IsAny<IDbConnection>()))
-                .Returns((Office office, IDbConnection connection) => offices.Find(x => x.Id == office.Id) ?? new Office());
+            mockBusiness.Setup(p => p.Read(It.IsAny<Office>()))
+                .Returns((Office office) => offices.Find(x => x.Id == office.Id) ?? new Office());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Office>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((Office office, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Office>(), It.IsAny<User>()))
+                .Returns((Office office, User user) =>
                 {
                     if (offices.Exists(x => x.Name == office.Name))
                     {
@@ -107,27 +68,48 @@ namespace Api.Test.Config
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<Office>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((Office office, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<Office>(), It.IsAny<User>()))
+                .Returns((Office office, User user) =>
                 {
                     offices.Where(x => x.Id == office.Id).ToList().ForEach(x => x.Name = office.Name);
                     return office;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<Office>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((Office office, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<Office>(), It.IsAny<User>()))
+                .Returns((Office office, User user) =>
                 {
                     offices = offices.Where(x => x.Id != office.Id).ToList();
                     return office;
                 });
+            mockBusiness.Setup(p => p.ListAccountExecutives("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
+                .Returns(new ListResult<AccountExecutive>(executives_offices.Where(x => x.Item1.Id == 1).Select(x => x.Item2).ToList(), 1));
+            mockBusiness.Setup(p => p.ListAccountExecutives("idaccountexecutive = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
+                .Returns(new ListResult<AccountExecutive>(new List<AccountExecutive>(), 0));
+            mockBusiness.Setup(p => p.ListAccountExecutives("idejecutivocuenta = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
+                .Throws<PersistentException>();
+            mockBusiness.Setup(p => p.ListNotAccountExecutives(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
+                .Returns((string filters, string orders, int limit, int offset, Office office) =>
+                {
+                    List<AccountExecutive> result = executives.Where(x => !executives_offices.Exists(y => y.Item1.Id == office.Id && y.Item2.Id == x.Id)).ToList();
+                    return new ListResult<AccountExecutive>(result, result.Count);
+                });
+            mockBusiness.Setup(p => p.InsertAccountExecutive(It.IsAny<AccountExecutive>(), It.IsAny<Office>(), It.IsAny<User>())).
+                Returns((AccountExecutive executive, Office office, User user) =>
+                {
+                    if (executives_offices.Exists(x => x.Item1.Id == office.Id && x.Item2.Id == executive.Id))
+                    {
+                        throw new PersistentException();
+                    }
+                    else
+                    {
+                        executives_offices.Add(new Tuple<Office, AccountExecutive>(office, executive));
+                        return executive;
+                    }
+                });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
-
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
-
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
+            api = new OfficeController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
-                ControllerContext = _controllerContext
+                ControllerContext = controllerContext
             };
         }
         #endregion
@@ -137,10 +119,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un listado de oficinas con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void OfficeListTest()
+        public void Test()
         {
-            ListResult<Office> list = _api.List("o.idoffice = 1", "o.name", 1, 0);
+            //Act
+            ListResult<Office> list = api.List("idoffice = 1", "o.name", 1, 0);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -149,10 +133,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un listado de oficinas con filtros, ordenamientos y límite y con errores
         /// </summary>
         [Fact]
-        public void OfficeListWithErrorTest()
+        public void ListWithErrorTest()
         {
-            ListResult<Office> list = _api.List("idoficina = 1", "name", 1, 0);
+            //Act
+            ListResult<Office> list = api.List("idoficina = 1", "name", 1, 0);
 
+            //Assert
             Assert.Equal(0, list.Total);
         }
 
@@ -160,10 +146,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de una oficina dada su identificador
         /// </summary>
         [Fact]
-        public void OfficeReadTest()
+        public void ReadTest()
         {
-            Office office = _api.Read(1);
+            //Act
+            Office office = api.Read(1);
 
+            //Assert
             Assert.Equal("Castellana", office.Name);
         }
 
@@ -171,10 +159,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de una oficina que no existe dado su identificador
         /// </summary>
         [Fact]
-        public void OfficeReadNotFoundTest()
+        public void ReadNotFoundTest()
         {
-            Office office = _api.Read(10);
+            //Act
+            Office office = api.Read(10);
 
+            //Assert
             Assert.Equal(0, office.Id);
         }
 
@@ -182,11 +172,15 @@ namespace Api.Test.Config
         /// Prueba la inserción de una oficina
         /// </summary>
         [Fact]
-        public void OfficeInsertTest()
+        public void InsertTest()
         {
+            //Arrange
             Office office = new() { City = new() { Id = 1 }, Name = "Madelena", Address = "Calle 59 sur" };
-            office = _api.Insert(office);
 
+            //Act
+            office = api.Insert(office);
+
+            //Assert
             Assert.NotEqual(0, office.Id);
         }
 
@@ -194,13 +188,16 @@ namespace Api.Test.Config
         /// Prueba la actualización de una oficina
         /// </summary>
         [Fact]
-        public void OfficeUpdateTest()
+        public void UpdateTest()
         {
+            //Arrange
             Office office = new() { Id = 2, City = new() { Id = 1 }, Name = "Santa Librada", Address = "Calle 78 sur" };
-            _ = _api.Update(office);
 
-            Office office2 = _api.Read(2);
+            //Act
+            _ = api.Update(office);
+            Office office2 = api.Read(2);
 
+            //Assert
             Assert.NotEqual("Kennedy", office2.Name);
         }
 
@@ -208,13 +205,82 @@ namespace Api.Test.Config
         /// Prueba la eliminación de una oficina
         /// </summary>
         [Fact]
-        public void OfficeDeleteTest()
+        public void DeleteTest()
         {
-            _ = _api.Delete(3);
+            //Act
+            _ = api.Delete(3);
+            Office office = api.Read(3);
 
-            Office office = _api.Read(3);
-
+            //Assert
             Assert.Equal(0, office.Id);
+        }
+
+        /// <summary>
+        /// Prueba la consulta de un listado de ejecutivos de cuenta de una oficina con filtros, ordenamientos y límite
+        /// </summary>
+        [Fact]
+        public void ListAccountExecutivesTest()
+        {
+            //Act
+            ListResult<AccountExecutive> list = ((OfficeController)api).ListAccountExecutives("", "", 10, 0, 1);
+
+            //Assert
+            Assert.NotEmpty(list.List);
+            Assert.True(list.Total > 0);
+        }
+
+        /// <summary>
+        /// Prueba la consulta de un listado de ejecutivos de cuenta de una oficina con filtros, ordenamientos y límite y con errores
+        /// </summary>
+        [Fact]
+        public void ListAccountExecutivesWithErrorTest()
+        {
+            //Act
+            ListResult<AccountExecutive> list = ((OfficeController)api).ListAccountExecutives("idejecutivocuenta = 1", "name", 10, 0, 1);
+
+            //Assert
+            Assert.Equal(0, list.Total);
+        }
+
+        /// <summary>
+        /// Prueba la consulta de un listado de ejecutivos de cuenta no asignados a una oficina con filtros, ordenamientos y límite
+        /// </summary>
+        [Fact]
+        public void ListNotAccountExecutivesTest()
+        {
+            //Act
+            ListResult<AccountExecutive> list = ((OfficeController)api).ListNotAccountExecutives("", "", 10, 0, 1);
+
+            //Assert
+            Assert.NotEmpty(list.List);
+            Assert.True(list.Total > 0);
+        }
+
+        /// <summary>
+        /// Prueba la inserción de un ejecutivo de cuenta a una oficina
+        /// </summary>
+        [Fact]
+        public void InsertAccountExecutiveTest()
+        {
+            //Act
+            AccountExecutive executive = ((OfficeController)api).InsertAccountExecutive(new() { Id = 4 }, 1);
+
+            //Assert
+            Assert.NotEqual(0, executive.Id);
+        }
+
+        /// <summary>
+        /// Prueba la eliminación de un ejecutivo de cuenta de una oficina
+        /// </summary>
+        [Fact]
+        public void DeleteAccountExecutiveTest()
+        {
+            //Act
+            _ = ((OfficeController)api).DeleteAccountExecutive(2, 1);
+            ListResult<AccountExecutive> list = ((OfficeController)api).ListAccountExecutives("idaccountexecutive = 2", "", 10, 0, 1);
+
+            //Assert
+            Assert.Equal(0, list.Total);
         }
         #endregion
     }

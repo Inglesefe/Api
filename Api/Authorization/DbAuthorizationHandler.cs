@@ -1,9 +1,7 @@
 ﻿using Business.Auth;
-using Dal.Auth;
 using Dal.Dto;
 using Entities.Auth;
 using Microsoft.AspNetCore.Authorization;
-using MySql.Data.MySqlClient;
 using System.Security.Claims;
 
 namespace Api.Authorization
@@ -16,9 +14,9 @@ namespace Api.Authorization
     {
         #region Attributes
         /// <summary>
-        /// Conexi{on a la base de datos para verificar permisos
+        /// Capa de negocio de las aplicaciones
         /// </summary>
-        private readonly IConfiguration _configuration;
+        private readonly IBusinessApplication _business;
         #endregion
 
         #region Constructors
@@ -26,9 +24,9 @@ namespace Api.Authorization
         /// Inicializa la conexión a la base de datos
         /// </summary>
         /// <param name="configuration">Configuración de la aplicación</param>
-        public DbAuthorizationHandler(IConfiguration configuration)
+        public DbAuthorizationHandler(IBusinessApplication business)
         {
-            _configuration = configuration;
+            _business = business;
         }
         #endregion
 
@@ -41,7 +39,6 @@ namespace Api.Authorization
         /// <returns>Si el usuario es válido o no</returns>
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, DbAuthorizationRequirement requirement)
         {
-            BusinessApplication businness = new(new PersistentApplication());
             Dictionary<string, int> applications = new()
             {
                 { "Application", 1 },
@@ -61,7 +58,7 @@ namespace Api.Authorization
             if (ctx != null)
             {
                 string controller = (string)(ctx.Request.RouteValues["controller"] ?? "");
-                ListResult<Role> roles = businness.ListRoles("", "", 100, 0, new() { Id = applications[controller] }, new MySqlConnection(_configuration.GetConnectionString("golden")));
+                ListResult<Role> roles = _business.ListRoles("", "", 100, 0, new() { Id = applications[controller] });
                 if (roles.Total > 0)
                 {
                     string rolesInToken = context.User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value ?? "";

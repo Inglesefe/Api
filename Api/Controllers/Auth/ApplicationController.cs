@@ -5,11 +5,12 @@ using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Config;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
+using System.Text.Json;
 
 namespace Api.Controllers.Auth
 {
@@ -25,17 +26,17 @@ namespace Api.Controllers.Auth
         /// <summary>
         /// Inicializa la configuración del controlador
         /// </summary>
-        /// <param name="configuration">Configuración de la aplicación</param>
+        /// <param name="configuration">Configuración del api</param>
         /// <param name="business">Capa de negocio de aplicaciones</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de plantilla de errores</param>
-        /// <param name="connection">Conexión a la base de datos</param>
-        public ApplicationController(IConfiguration configuration, IBusinessApplication business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
+        /// <param name="parameter">Administrador de parámetros</param>
+        public ApplicationController(IConfiguration configuration, IBusinessApplication business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
                   configuration,
                   business,
                   log,
                   templateError,
-                  connection)
+                  parameter)
         { }
         #endregion
 
@@ -54,23 +55,24 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List roles related to app " + application);
-                return ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application }, _connection);
+                ListResult<Role> result = ((IBusinessApplication)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             Response.StatusCode = 500;
-            return new ListResult<Role>(new List<Role>(), 0);
+            return new(new List<Role>(), 0);
         }
 
         /// <summary>
@@ -87,20 +89,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List roles not related to app " + application);
-                return ((IBusinessApplication)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application }, _connection);
+                ListResult<Role> result = ((IBusinessApplication)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = application });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", application: " + application);
             }
             Response.StatusCode = 500;
             return new ListResult<Role>(new List<Role>(), 0);
@@ -109,7 +112,7 @@ namespace Api.Controllers.Auth
         /// <summary>
         /// Asigna un rol a una aplicación en la base de datos
         /// </summary>
-        /// <param name="role">Rol que se asigna al usuario</param>
+        /// <param name="role">Rol que se asigna a la aplicación</param>
         /// <param name="application">Aplicación al que se le asigna el rol</param>
         /// <returns>Rol asignado</returns>
         [HttpPost("{application:int}/role")]
@@ -117,20 +120,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Insert role " + role.Id + " to app " + application);
-                return ((IBusinessApplication)_business).InsertRole(role, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Role result = ((IBusinessApplication)_business).InsertRole(role, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("role: " + JsonSerializer.Serialize(role) + ", application: " + application, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "role: " + JsonSerializer.Serialize(role) + ", application: " + application);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "role: " + JsonSerializer.Serialize(role) + ", application: " + application);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "role: " + JsonSerializer.Serialize(role) + ", application: " + application);
             }
             Response.StatusCode = 500;
             return new();
@@ -139,7 +143,7 @@ namespace Api.Controllers.Auth
         /// <summary>
         /// Elimina un rol de una aplicación de la base de datos
         /// </summary>
-        /// <param name="role">Rol a eliminarle al usuario</param>
+        /// <param name="role">Rol a eliminarle a la aplicación</param>
         /// <param name="application">Aplicación al que se le elimina el rol</param>
         /// <returns>Rol eliminado</returns>
         [HttpDelete("{application:int}/role/{role:int}")]
@@ -147,23 +151,36 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Delete role " + role + " to app " + application);
-                return ((IBusinessApplication)_business).DeleteRole(new() { Id = role }, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Role result = ((IBusinessApplication)_business).DeleteRole(new() { Id = role }, new() { Id = application }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("role: " + role + ", application: " + application, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "role: " + role + ", application: " + application);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "role: " + role + ", application: " + application);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "role: " + role + ", application: " + application);
             }
             Response.StatusCode = 500;
             return new();
+        }
+
+        /// <inheritdoc />
+        protected override Application GetNewObject(int id)
+        {
+            return new Application() { Id = id };
+        }
+
+        /// <inheritdoc />
+        protected override bool ObjectIsDefault(Application obj)
+        {
+            return obj.Id == 0;
         }
         #endregion
     }

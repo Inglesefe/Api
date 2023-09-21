@@ -1,22 +1,12 @@
 ﻿using Api.Controllers.Auth;
 using Api.Dto;
-using Business;
 using Business.Auth;
 using Business.Util;
-using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
-using Entities.Log;
-using Entities.Noti;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Data;
-using System.Security.Claims;
-using System.Security.Principal;
 
 namespace Api.Test.Auth
 {
@@ -24,54 +14,16 @@ namespace Api.Test.Auth
     /// Realiza las pruebas sobre la clase de api de usuarios
     /// </summary>
     [Collection("Test")]
-    public class UserTest
+    public class UserTest : TestBase<User>
     {
-        #region Attributes
-        /// <summary>
-        /// Configuración de la aplicación de pruebas
-        /// </summary>
-        private readonly IConfiguration _configuration;
-
-        /// <summary>
-        /// Controlador API para los usuarios
-        /// </summary>
-        private readonly UserController _api;
-
-        /// <summary>
-        /// Contexto HTTP con que se conecta a los servicios Rest
-        /// </summary>
-        private readonly ControllerContext _controllerContext;
-        #endregion
-
         #region Constructors
         /// <summary>
         /// Inicializa la configuración de la prueba
         /// </summary>
-        public UserTest()
+        public UserTest() : base()
         {
+            //Arrange
             Mock<IBusinessUser> mockBusiness = new();
-            Mock<IPersistentBase<LogComponent>> mockLog = new();
-            Mock<IBusiness<Template>> mockTemplate = new();
-            Mock<IDbConnection> mockConnection = new();
-
-            GenericIdentity identity = new("usuario", "prueba");
-            identity.AddClaim(new Claim("id", "1"));
-            _controllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-                {
-                    User = new ClaimsPrincipal(identity)
-                },
-                ActionDescriptor = new ControllerActionDescriptor()
-                {
-                    ControllerName = "UserTest",
-                    ActionName = "Test"
-                }
-            };
-            _configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", false, false)
-                .AddEnvironmentVariables()
-                .Build();
 
             List<Role> roles = new()
             {
@@ -94,29 +46,23 @@ namespace Api.Test.Auth
                 new Tuple<User, Role>(users[1], roles[0]),
                 new Tuple<User, Role>(users[1], roles[1])
             };
-            List<Template> templates = new()
-            {
-                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
-                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
-                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
-            };
 
-            mockBusiness.Setup(p => p.List("iduser = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("iduser = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Returns(new ListResult<User>(users.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, IDbConnection connection) => users.Find(x => x.Id == user.Id) ?? new User());
+            mockBusiness.Setup(p => p.Read(It.IsAny<User>()))
+                .Returns((User user) => users.Find(x => x.Id == user.Id) ?? new User());
 
-            mockBusiness.Setup(p => p.ReadByLoginAndPassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, string password, string key, string iv, IDbConnection connection) => users.Find(x => x.Login == user.Login && password == "FLWnwyoEz/7tYsnS+vxTVg==" && x.Active) ?? new User());
+            mockBusiness.Setup(p => p.ReadByLoginAndPassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns((User user, string password, string key, string iv) => users.Find(x => x.Login == user.Login && password == "FLWnwyoEz/7tYsnS+vxTVg==" && x.Active) ?? new User());
 
-            mockBusiness.Setup(p => p.ReadByLogin(It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, IDbConnection connection) => users.Find(x => x.Login == user.Login) ?? new User());
+            mockBusiness.Setup(p => p.ReadByLogin(It.IsAny<User>()))
+                .Returns((User user) => users.Find(x => x.Login == user.Login) ?? new User());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<User>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, User user1, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
                 {
                     if (users.Exists(x => x.Login == user.Login))
                     {
@@ -130,44 +76,44 @@ namespace Api.Test.Auth
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<User>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, User user1, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
                 {
                     users.Where(x => x.Id == user.Id).ToList().ForEach(x => { x.Login = user.Login; x.Name = user.Name; x.Active = user.Active; });
                     return user;
                 });
 
-            mockBusiness.Setup(p => p.UpdatePassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, string password, string key, string iv, User user1, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.UpdatePassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<User>()))
+                .Returns((User user, string password, string key, string iv, User user1) =>
                 {
                     return user;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<User>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((User user, User user1, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<User>(), It.IsAny<User>()))
+                .Returns((User user, User user1) =>
                 {
                     users = users.Where(x => x.Id != user.Id).ToList();
                     return user;
                 });
 
-            mockBusiness.Setup(p => p.ListRoles("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.ListRoles("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Returns(new ListResult<Role>(users_roles.Where(x => x.Item1.Id == 1).Select(x => x.Item2).ToList(), 1));
 
-            mockBusiness.Setup(p => p.ListRoles("r.idrole = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.ListRoles("r.idrole = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Returns(new ListResult<Role>(new List<Role>(), 0));
 
-            mockBusiness.Setup(p => p.ListRoles("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.ListRoles("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.ListNotRoles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((string filters, string orders, int limit, int offset, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.ListNotRoles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+                .Returns((string filters, string orders, int limit, int offset, User user) =>
                 {
                     List<Role> result = roles.Where(x => !users_roles.Exists(y => y.Item1.Id == user.Id && y.Item2.Id == x.Id)).ToList();
                     return new ListResult<Role>(result, result.Count);
                 });
 
-            mockBusiness.Setup(p => p.InsertRole(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<User>(), It.IsAny<IDbConnection>())).
-                Returns((Role role, User user, User user1, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.InsertRole(It.IsAny<Role>(), It.IsAny<User>(), It.IsAny<User>())).
+                Returns((Role role, User user, User user1) =>
                 {
                     if (users_roles.Exists(x => x.Item1.Id == user.Id && x.Item2.Id == role.Id))
                     {
@@ -180,13 +126,9 @@ namespace Api.Test.Auth
                     }
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
-
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
-
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
+            api = new UserController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
-                ControllerContext = _controllerContext
+                ControllerContext = controllerContext
             };
         }
         #endregion
@@ -196,10 +138,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un listado de usuarios con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void UserListTest()
+        public void ListTest()
         {
-            ListResult<User> list = _api.List("iduser = 1", "name", 1, 0);
+            //Act
+            ListResult<User> list = api.List("iduser = 1", "name", 1, 0);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -208,9 +152,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un listado de usuarios con filtros, ordenamientos y límite y con errores
         /// </summary>
         [Fact]
-        public void UserListWithErrorTest()
+        public void ListWithErrorTest()
         {
-            ListResult<User> list = _api.List("idusuario = 1", "name", 1, 0);
+            //Act
+            ListResult<User> list = api.List("idusuario = 1", "name", 1, 0);
+
+            //Assert
             Assert.Equal(0, list.Total);
         }
 
@@ -218,9 +165,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario dado su identificador
         /// </summary>
         [Fact]
-        public void UserReadTest()
+        public void ReadTest()
         {
-            User user = _api.Read(1);
+            //Act
+            User user = api.Read(1);
+
+            //Assert
             Assert.Equal("leandrobaena@gmail.com", user.Login);
         }
 
@@ -228,9 +178,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario que no existe dado su identificador
         /// </summary>
         [Fact]
-        public void UserReadNotFoundTest()
+        public void ReadNotFoundTest()
         {
-            User user = _api.Read(10);
+            //Act
+            User user = api.Read(10);
+
+            //Assert
             Assert.Equal(0, user.Id);
         }
 
@@ -238,10 +191,15 @@ namespace Api.Test.Auth
         /// Prueba la inserción de un usuario
         /// </summary>
         [Fact]
-        public void UserInsertTest()
+        public void InsertTest()
         {
+            //Arrange
             User user = new() { Login = "insertado@prueba.com", Name = "Prueba 1", Active = true };
-            user = _api.Insert(user);
+
+            //Act
+            user = api.Insert(user);
+
+            //Assert
             Assert.NotEqual(0, user.Id);
         }
 
@@ -249,10 +207,15 @@ namespace Api.Test.Auth
         /// Prueba la inserción de un usuario con login duplicado
         /// </summary>
         [Fact]
-        public void UserInsertDuplicateTest()
+        public void InsertDuplicateTest()
         {
+            //Arrange
             User user = new() { Login = "leandrobaena@gmail.com", Name = "Prueba insertar", Active = true };
-            user = _api.Insert(user);
+
+            //Act
+            user = api.Insert(user);
+
+            //Assert
             Assert.Equal(0, user.Id);
         }
 
@@ -260,13 +223,16 @@ namespace Api.Test.Auth
         /// Prueba la actualización de un usuario
         /// </summary>
         [Fact]
-        public void UserUpdateTest()
+        public void UpdateTest()
         {
+            //Arrange
             User user = new() { Id = 2, Login = "otrologin@gmail.com", Name = "Prueba actualizar", Active = false };
-            _ = _api.Update(user);
 
-            User user2 = _api.Read(2);
+            //Act
+            _ = api.Update(user);
+            User user2 = api.Read(2);
 
+            //Assert
             Assert.NotEqual("actualizame@gmail.com", user2.Name);
             Assert.False(user2.Active);
         }
@@ -275,12 +241,13 @@ namespace Api.Test.Auth
         /// Prueba la eliminación de un usuario
         /// </summary>
         [Fact]
-        public void UserDeleteTest()
+        public void DeleteTest()
         {
-            _ = _api.Delete(3);
+            //Act
+            _ = api.Delete(3);
+            User user2 = api.Read(3);
 
-            User user2 = _api.Read(3);
-
+            //Assert
             Assert.Equal(0, user2.Id);
         }
 
@@ -288,9 +255,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario dado su login y contraseña
         /// </summary>
         [Fact]
-        public void UserReadByLoginAndPasswordTest()
+        public void ReadByLoginAndPasswordTest()
         {
-            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            //Act
+            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+
+            //Assert
             Assert.True(response.Valid);
         }
 
@@ -298,10 +268,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario inactivo dado su login y password
         /// </summary>
         [Fact]
-        public void UserReadByLoginTest()
+        public void ReadByLoginTest()
         {
-            LoginResponse response = _api.ReadByLogin("leandrobaena@gmail.com");
+            //Act
+            LoginResponse response = ((UserController)api).ReadByLogin("leandrobaena@gmail.com");
 
+            //Assert
             Assert.True(response.Valid);
         }
 
@@ -309,9 +281,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario dado su login
         /// </summary>
         [Fact]
-        public void UserReadByLoginAndPasswordInactiveTest()
+        public void ReadByLoginAndPasswordInactiveTest()
         {
-            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            //Act
+            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+
+            //Assert
             Assert.False(response.Valid);
         }
 
@@ -319,16 +294,20 @@ namespace Api.Test.Auth
         /// Prueba la actualización de la contraseña de un usuario
         /// </summary>
         [Fact]
-        public void UserUpdatePasswordTest()
+        public void UpdatePasswordTest()
         {
+            //Arrange
             ChangePasswordRequest request = new()
             {
                 Password = "Prueba123",
-                Token = Crypto.Encrypt("1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "")
+                Token = Crypto.Encrypt("1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
-            _ = _api.UpdatePassword(request);
 
-            LoginResponse response = _api.ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            //Act
+            _ = ((UserController)api).UpdatePassword(request);
+
+            //Assert
+            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
             Assert.True(response.Valid);
         }
 
@@ -336,10 +315,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un listado de roles de un usuario con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void UserListRolesTest()
+        public void ListRolesTest()
         {
-            ListResult<Role> list = _api.ListRoles("", "", 10, 0, 1);
+            //Act
+            ListResult<Role> list = ((UserController)api).ListRoles("", "", 10, 0, 1);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -348,10 +329,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un listado de roles de un usuario con filtros, ordenamientos y límite y con errores
         /// </summary>
         [Fact]
-        public void UserListRolesWithErrorTest()
+        public void ListRolesWithErrorTest()
         {
-            ListResult<Role> list = _api.ListRoles("idusuario = 1", "", 10, 0, 1);
+            //Act
+            ListResult<Role> list = ((UserController)api).ListRoles("idusuario = 1", "", 10, 0, 1);
 
+            //Assert
             Assert.Empty(list.List);
             Assert.Equal(0, list.Total);
         }
@@ -360,10 +343,12 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un listado de roles no asignados a un usuario con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void UserListNotRolesTest()
+        public void ListNotRolesTest()
         {
-            ListResult<Role> list = _api.ListNotRoles("", "", 10, 0, 1);
+            //Act
+            ListResult<Role> list = ((UserController)api).ListNotRoles("", "", 10, 0, 1);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -372,9 +357,12 @@ namespace Api.Test.Auth
         /// Prueba la inserción de un rol de un usuario
         /// </summary>
         [Fact]
-        public void UserInsertRoleTest()
+        public void InsertRoleTest()
         {
-            Role role = _api.InsertRole(new() { Id = 4 }, 1);
+            //Act
+            Role role = ((UserController)api).InsertRole(new() { Id = 4 }, 1);
+
+            //Assert
             Assert.NotEqual(0, role.Id);
         }
 
@@ -382,9 +370,12 @@ namespace Api.Test.Auth
         /// Prueba la inserción de un rol de un usuario duplicado
         /// </summary>
         [Fact]
-        public void UserInsertRoleDuplicateTest()
+        public void InsertRoleDuplicateTest()
         {
-            Role role = _api.InsertRole(new() { Id = 1 }, 1);
+            //Act
+            Role role = ((UserController)api).InsertRole(new() { Id = 1 }, 1);
+
+            //Assert
             Assert.Equal(0, role.Id);
         }
 
@@ -392,10 +383,13 @@ namespace Api.Test.Auth
         /// Prueba la eliminación de un rol de un usuario
         /// </summary>
         [Fact]
-        public void UserDeleteRoleTest()
+        public void DeleteRoleTest()
         {
-            _ = _api.DeleteRole(2, 1);
-            ListResult<Role> list = _api.ListRoles("r.idrole = 2", "", 10, 0, 1);
+            //Act
+            _ = ((UserController)api).DeleteRole(2, 1);
+            ListResult<Role> list = ((UserController)api).ListRoles("r.idrole = 2", "", 10, 0, 1);
+
+            //Assert
             Assert.Equal(0, list.Total);
         }
         #endregion
