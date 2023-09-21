@@ -5,11 +5,12 @@ using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Config;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
+using System.Text.Json;
 
 namespace Api.Controllers.Auth
 {
@@ -25,17 +26,17 @@ namespace Api.Controllers.Auth
         /// <summary>
         /// Inicializa la configuración del controlador
         /// </summary>
-        /// <param name="configuration">Configuración de la aplicación</param>
+        /// <param name="configuration">Configuración del api</param>
         /// <param name="business">Capa de negocio de roles</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de plantilla de errores</param>
-        /// <param name="connection">Conexión a la base de datos</param>
-        public RoleController(IConfiguration configuration, IBusinessRole business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
+        /// <param name="parameter">Administrador de parámetros</param>
+        public RoleController(IConfiguration configuration, IBusinessRole business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
             configuration,
             business,
             log,
             templateError,
-            connection)
+            parameter)
         { }
         #endregion
 
@@ -54,23 +55,24 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List users related to role " + role);
-                return ((IBusinessRole)_business).ListUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role }, _connection);
+                ListResult<User> result = ((IBusinessRole)_business).ListUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             Response.StatusCode = 500;
-            return new ListResult<User>(new List<User>(), 0);
+            return new(new List<User>(), 0);
         }
 
         /// <summary>
@@ -87,20 +89,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List users not related to role " + role);
-                return ((IBusinessRole)_business).ListNotUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role }, _connection);
+                ListResult<User> result = ((IBusinessRole)_business).ListNotUsers(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new ListResult<User>(new List<User>(), 0);
@@ -117,20 +120,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Insert role " + role + " to user " + user.Id);
-                return ((IBusinessRole)_business).InsertUser(user, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                User result = ((IBusinessRole)_business).InsertUser(user, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("user: " + JsonSerializer.Serialize(user) + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "user: " + JsonSerializer.Serialize(user) + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "user: " + JsonSerializer.Serialize(user) + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "user: " + JsonSerializer.Serialize(user) + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new();
@@ -147,20 +151,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Delete role " + role + " to user " + user);
-                return ((IBusinessRole)_business).DeleteUser(new() { Id = user }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                User result = ((IBusinessRole)_business).DeleteUser(new() { Id = user }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("user: " + user + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "user: " + user + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "user: " + user + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "user: " + user + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new();
@@ -180,20 +185,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List app related to role " + role);
-                return ((IBusinessRole)_business).ListApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role }, _connection);
+                ListResult<Application> result = ((IBusinessRole)_business).ListApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new ListResult<Application>(new List<Application>(), 0);
@@ -213,20 +219,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List app not related to role " + role);
-                return ((IBusinessRole)_business).ListNotApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role }, _connection);
+                ListResult<Application> result = ((IBusinessRole)_business).ListNotApplications(filters ?? "", orders ?? "", limit, offset, new() { Id = role });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new ListResult<Application>(new List<Application>(), 0);
@@ -243,20 +250,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Insert role " + role + " to app " + application.Id);
-                return ((IBusinessRole)_business).InsertApplication(application, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Application result = ((IBusinessRole)_business).InsertApplication(application, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("application: " + JsonSerializer.Serialize(application) + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "application: " + JsonSerializer.Serialize(application) + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "application: " + JsonSerializer.Serialize(application) + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "application: " + JsonSerializer.Serialize(application) + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new();
@@ -273,23 +281,36 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Delete role " + role + " to app " + application);
-                return ((IBusinessRole)_business).DeleteApplication(new() { Id = application }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Application result = ((IBusinessRole)_business).DeleteApplication(new() { Id = application }, new() { Id = role }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("application: " + application + ", role: " + role, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "application: " + application + ", role: " + role);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "application: " + application + ", role: " + role);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "application: " + application + ", role: " + role);
             }
             Response.StatusCode = 500;
             return new();
+        }
+
+        /// <inheritdoc />
+        protected override Role GetNewObject(int id)
+        {
+            return new Role() { Id = id };
+        }
+
+        /// <inheritdoc />
+        protected override bool ObjectIsDefault(Role obj)
+        {
+            return obj.Id == 0;
         }
         #endregion
     }

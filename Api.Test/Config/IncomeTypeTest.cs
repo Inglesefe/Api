@@ -1,20 +1,11 @@
 ﻿using Api.Controllers.Config;
 using Business;
-using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
 using Entities.Config;
-using Entities.Log;
-using Entities.Noti;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Data;
-using System.Security.Claims;
-using System.Security.Principal;
 
 namespace Api.Test.Config
 {
@@ -22,54 +13,15 @@ namespace Api.Test.Config
     /// Realiza las pruebas sobre la api de tipos de ingreso
     /// </summary>
     [Collection("Test")]
-    public class IncomeTypeTest
+    public class IncomeTypeTest : TestBase<IncomeType>
     {
-        #region Attributes
-        /// <summary>
-        /// Configuración de la aplicación de pruebas
-        /// </summary>
-        private readonly IConfiguration _configuration;
-
-        /// <summary>
-        /// Controlador API para los tipos de ingreso
-        /// </summary>
-        private readonly IncomeTypeController _api;
-
-        /// <summary>
-        /// Contexto HTTP con que se conecta a los servicios Rest
-        /// </summary>
-        private readonly ControllerContext _controllerContext;
-        #endregion
-
         #region Constructors
         /// <summary>
         /// Inicializa la configuración de la prueba
         /// </summary>
-        public IncomeTypeTest()
+        public IncomeTypeTest() : base()
         {
             Mock<IBusiness<IncomeType>> mockBusiness = new();
-            Mock<IPersistentBase<LogComponent>> mockLog = new();
-            Mock<IBusiness<Template>> mockTemplate = new();
-            Mock<IDbConnection> mockConnection = new();
-
-            GenericIdentity identity = new("usuario", "prueba");
-            identity.AddClaim(new Claim("id", "1"));
-            _controllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-                {
-                    User = new ClaimsPrincipal(identity)
-                },
-                ActionDescriptor = new ControllerActionDescriptor()
-                {
-                    ControllerName = "IncomeTypeTest",
-                    ActionName = "Test"
-                }
-            };
-            _configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", false, false)
-                .AddEnvironmentVariables()
-                .Build();
 
             List<IncomeType> incomeTypes = new()
             {
@@ -77,23 +29,17 @@ namespace Api.Test.Config
                 new IncomeType() { Id = 2, Code = "CR", Name = "Crédito cartera" },
                 new IncomeType() { Id = 3, Code = "FC", Name = "Factura" }
             };
-            List<Template> templates = new()
-            {
-                new Template() { Id = 1, Name = "Notificación de error", Content = "<p>Error #{id}#</p><p>La excepci&oacute;n tiene el siguiente mensaje: #{message}#</p>" },
-                new Template() { Id = 2, Name = "Recuperación contraseña", Content = "<p>Prueba recuperaci&oacute;n contrase&ntilde;a con enlace #{link}#</p>" },
-                new Template() { Id = 3, Name = "Contraseña cambiada", Content = "<p>Prueba de que su contrase&ntilde;a ha sido cambiada con &eacute;xito</p>" }
-            };
 
-            mockBusiness.Setup(p => p.List("idincometype = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idincometype = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Returns(new ListResult<IncomeType>(incomeTypes.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idtipoingreso = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idtipoingreso = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Throws<PersistentException>();
 
-            mockBusiness.Setup(p => p.Read(It.IsAny<IncomeType>(), It.IsAny<IDbConnection>()))
-                .Returns((IncomeType incomeType, IDbConnection connection) => incomeTypes.Find(x => x.Id == incomeType.Id) ?? new IncomeType());
+            mockBusiness.Setup(p => p.Read(It.IsAny<IncomeType>()))
+                .Returns((IncomeType incomeType) => incomeTypes.Find(x => x.Id == incomeType.Id) ?? new IncomeType());
 
-            mockBusiness.Setup(p => p.Insert(It.IsAny<IncomeType>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((IncomeType incomeType, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Insert(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
                 {
                     if (incomeTypes.Exists(x => x.Code == incomeType.Code))
                     {
@@ -107,27 +53,23 @@ namespace Api.Test.Config
                     }
                 });
 
-            mockBusiness.Setup(p => p.Update(It.IsAny<IncomeType>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((IncomeType incomeType, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Update(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
                 {
                     incomeTypes.Where(x => x.Id == incomeType.Id).ToList().ForEach(x => x.Name = incomeType.Name);
                     return incomeType;
                 });
 
-            mockBusiness.Setup(p => p.Delete(It.IsAny<IncomeType>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((IncomeType incomeType, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Delete(It.IsAny<IncomeType>(), It.IsAny<User>()))
+                .Returns((IncomeType incomeType, User user) =>
                 {
                     incomeTypes = incomeTypes.Where(x => x.Id != incomeType.Id).ToList();
                     return incomeType;
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
-
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
-
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
+            api = new IncomeTypeController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
-                ControllerContext = _controllerContext
+                ControllerContext = controllerContext
             };
         }
         #endregion
@@ -137,10 +79,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un listado de tipos de ingreso con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void IncomeTypeListTest()
+        public void ListTest()
         {
-            ListResult<IncomeType> list = _api.List("idincometype = 1", "name", 1, 0);
+            //Act
+            ListResult<IncomeType> list = api.List("idincometype = 1", "name", 1, 0);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -149,10 +93,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un listado de tipos de ingreso con filtros, ordenamientos y límite y con errores
         /// </summary>
         [Fact]
-        public void IncomeTypeListWithErrorTest()
+        public void ListWithErrorTest()
         {
-            ListResult<IncomeType> list = _api.List("idtipoingreso = 1", "name", 1, 0);
+            //Act
+            ListResult<IncomeType> list = api.List("idtipoingreso = 1", "name", 1, 0);
 
+            //Assert
             Assert.Equal(0, list.Total);
         }
 
@@ -160,10 +106,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un tipo de ingreso dada su identificador
         /// </summary>
         [Fact]
-        public void IncomeTypeReadTest()
+        public void ReadTest()
         {
-            IncomeType incomeType = _api.Read(1);
+            //Act
+            IncomeType incomeType = api.Read(1);
 
+            //Assert
             Assert.Equal("CI", incomeType.Code);
         }
 
@@ -171,10 +119,12 @@ namespace Api.Test.Config
         /// Prueba la consulta de un tipo de ingreso que no existe dado su identificador
         /// </summary>
         [Fact]
-        public void IncomeTypeReadNotFoundTest()
+        public void ReadNotFoundTest()
         {
-            IncomeType incomeType = _api.Read(10);
+            //Act
+            IncomeType incomeType = api.Read(10);
 
+            //Assert
             Assert.Equal(0, incomeType.Id);
         }
 
@@ -182,11 +132,15 @@ namespace Api.Test.Config
         /// Prueba la inserción de un tipo de ingreso
         /// </summary>
         [Fact]
-        public void IncomeTypeInsertTest()
+        public void InsertTest()
         {
+            //Arrange
             IncomeType incomeType = new() { Code = "CF", Name = "Cheques posfechados" };
-            incomeType = _api.Insert(incomeType);
 
+            //Act
+            incomeType = api.Insert(incomeType);
+
+            //Assert
             Assert.NotEqual(0, incomeType.Id);
         }
 
@@ -194,13 +148,16 @@ namespace Api.Test.Config
         /// Prueba la actualización de un tipo de ingreso
         /// </summary>
         [Fact]
-        public void IncomeTypeUpdateTest()
+        public void UpdateTest()
         {
+            //Arrange
             IncomeType incomeType = new() { Id = 2, Code = "CT", Name = "Otro ingreso" };
-            _ = _api.Update(incomeType);
 
-            IncomeType incomeType2 = _api.Read(2);
+            //Act
+            _ = api.Update(incomeType);
+            IncomeType incomeType2 = api.Read(2);
 
+            //Assert
             Assert.NotEqual("Credito cartera", incomeType2.Name);
         }
 
@@ -208,12 +165,13 @@ namespace Api.Test.Config
         /// Prueba la eliminación de un tipo de ingreso
         /// </summary>
         [Fact]
-        public void IncomeTypeDeleteTest()
+        public void DeleteTest()
         {
-            _ = _api.Delete(3);
+            //Act
+            _ = api.Delete(3);
+            IncomeType incomeType = api.Read(3);
 
-            IncomeType incomeType = _api.Read(3);
-
+            //Assert
             Assert.Equal(0, incomeType.Id);
         }
         #endregion

@@ -5,7 +5,6 @@ using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
 
 namespace Api.Controllers.Config
 {
@@ -21,18 +20,32 @@ namespace Api.Controllers.Config
         /// <summary>
         /// Inicializa la configuración del controlador
         /// </summary>
-        /// <param name="configuration">Configuración de el tipo de ingreso</param>
+        /// <param name="configuration">Configuración del api</param>
         /// <param name="business">Capa de negocio de tipos de ingreso</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de notificaciones de error</param>
-        /// <param name="connection">Conexión a la base de datos</param>
-        public IncomeTypeController(IConfiguration configuration, IBusiness<IncomeType> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
+        /// <param name="parameter">Administrador de parámetros</param>
+        public IncomeTypeController(IConfiguration configuration, IBusiness<IncomeType> business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
                   configuration,
                   business,
                   log,
                   templateError,
-                  connection)
+                  parameter)
         { }
+        #endregion
+
+        #region Methods
+        /// <inheritdoc />
+        protected override IncomeType GetNewObject(int id)
+        {
+            return new IncomeType() { Id = id };
+        }
+
+        /// <inheritdoc />
+        protected override bool ObjectIsDefault(IncomeType obj)
+        {
+            return obj.Id == 0;
+        }
         #endregion
     }
 }

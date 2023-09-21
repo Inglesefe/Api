@@ -9,6 +9,7 @@ using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
+using Entities.Config;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,7 @@ using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 
 namespace Api.Controllers.Auth
 {
@@ -34,17 +36,17 @@ namespace Api.Controllers.Auth
         /// <summary>
         /// Inicializa la configuración del controlador
         /// </summary>
-        /// <param name="configuration">Configuración de la aplicación</param>
+        /// <param name="configuration">Configuración del api</param>
         /// <param name="business">Capa de negocio de usuarios</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de plantilla de errores</param>
-        /// <param name="connection">Conexión a la base de datos</param>
-        public UserController(IConfiguration configuration, IBusinessUser business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection) : base(
+        /// <param name="parameter">Administrador de parámetros</param>
+        public UserController(IConfiguration configuration, IBusinessUser business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
             configuration,
             business,
             log,
             templateError,
-            connection)
+            parameter)
         { }
         #endregion
 
@@ -60,14 +62,14 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Login for user " + data.Login);
-                User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", _connection);
+                LoginResponse result = new();
+                User user = ((IBusinessUser)_business).ReadByLoginAndPassword(new() { Login = data.Login }, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                 if (user.Id != 0)
                 {
                     var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? ""));
                     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-                    IList<Role> roles = ((IBusinessUser)_business).ListRoles("", "", 100, 0, user, _connection).List;
+                    IList<Role> roles = ((IBusinessUser)_business).ListRoles("", "", 100, 0, user).List;
 
                     var claims = new[] {
                         new Claim("id", user.Id.ToString()),
@@ -82,24 +84,22 @@ namespace Api.Controllers.Auth
                         expires: DateTime.Now.AddMinutes(120),
                         signingCredentials: credentials);
 
-                    return new() { Valid = true, Token = new JwtSecurityTokenHandler().WriteToken(token) };
+                    result = new() { Valid = true, Token = new JwtSecurityTokenHandler().WriteToken(token) };
                 }
-                else
-                {
-                    return new();
-                }
+                LogInfo("data: " + JsonSerializer.Serialize(data), JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "data: " + JsonSerializer.Serialize(data));
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "data: " + JsonSerializer.Serialize(data));
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "data: " + JsonSerializer.Serialize(data));
             }
             Response.StatusCode = 500;
             return new();
@@ -116,23 +116,30 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Recovery password for login " + login);
-                User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login }, _connection);
+                LoginResponse result = new();
+                User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
                 if (user.Id != 0)
                 {
                     string crypto = Crypto.Encrypt(user.Id + "~" + user.Login + "~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                     //Enviar notificación
+                    string SMTP_FROM = _parameter.List("name = 'SMTP_FROM'", "", 1, 0).List[0].Value;
+                    string SMTP_HOST = _parameter.List("name = 'SMTP_HOST'", "", 1, 0).List[0].Value;
+                    string SMTP_PASS = _parameter.List("name = 'SMTP_PASS'", "", 1, 0).List[0].Value;
+                    string SMTP_PORT = _parameter.List("name = 'SMTP_PORT'", "", 1, 0).List[0].Value;
+                    string SMTP_SSL = _parameter.List("name = 'SMTP_SSL'", "", 1, 0).List[0].Value;
+                    string SMTP_USERNAME = _parameter.List("name = 'SMTP_USERNAME'", "", 1, 0).List[0].Value;
+                    string URL_CHANGE_PASS = _parameter.List("name = 'URL_CHANGE_PASS'", "", 1, 0).List[0].Value;
                     SmtpConfig smtpConfig = new()
                     {
-                        From = _configuration["Smtp:From"] ?? "",
-                        Host = _configuration["Smtp:Host"] ?? "",
-                        Password = _configuration["Smtp:Password"] ?? "",
-                        Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                        Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                        Username = _configuration["Smtp:Username"] ?? ""
+                        From = SMTP_FROM,
+                        Host = SMTP_HOST,
+                        Password = SMTP_PASS,
+                        Port = int.Parse(SMTP_PORT),
+                        Ssl = bool.Parse(SMTP_SSL ?? "false"),
+                        Username = SMTP_USERNAME
                     };
-                    Template template = _templateError.Read(new() { Id = 2 }, _connection);
-                    template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", _configuration["UrlWeb"] + Uri.EscapeDataString(crypto) } });
+                    Template template = _templateError.Read(new() { Id = 2 });
+                    template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "link", URL_CHANGE_PASS + Uri.EscapeDataString(crypto) } });
                     Notification notification = new()
                     {
                         To = login,
@@ -141,24 +148,22 @@ namespace Api.Controllers.Auth
                         Content = template.Content
                     };
                     BusinessNotification.SendNotification(notification, smtpConfig);
-                    return new() { Valid = true, Token = crypto };
+                    result = new() { Valid = true, Token = crypto };
                 }
-                else
-                {
-                    return new();
-                }
+                LogInfo("login: " + login, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "login: " + login);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "login: " + login);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "login: " + login);
             }
             Response.StatusCode = 500;
             return new();
@@ -175,34 +180,40 @@ namespace Api.Controllers.Auth
         {
             try
             {
+                ChangePasswordResponse result = new();
                 string plainToken = Crypto.Decrypt(data.Token, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "");
                 string[] parts = plainToken.Split("~");
                 int id = int.Parse(parts[0]);
                 string login = parts[1];
                 DateTime date = DateTime.ParseExact(parts[2], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-                if (DateTime.Now.Subtract(date).TotalMinutes > 30)
+                if (DateTime.Now.Subtract(date).TotalMinutes > 10)
                 {
-                    return new() { Success = false, Message = "El enlace ha perdido validez" };
+                    result = new() { Success = false, Message = "El enlace ha perdido validez" };
                 }
                 else
                 {
-                    User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login }, _connection);
+                    User user = ((IBusinessUser)_business).ReadByLogin(new() { Login = login });
                     if (user.Id != 0 && user.Id == id)
                     {
-                        LogInfo("Update password of user " + user.Id);
-                        _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 }, _connection);
+                        _ = ((IBusinessUser)_business).UpdatePassword(user, data.Password, _configuration["Aes:Key"] ?? "", _configuration["Aes:IV"] ?? "", new() { Id = 1 });
                         //Enviar notificación
+                        string SMTP_FROM = _parameter.List("name = 'SMTP_FROM'", "", 1, 0).List[0].Value;
+                        string SMTP_HOST = _parameter.List("name = 'SMTP_HOST'", "", 1, 0).List[0].Value;
+                        string SMTP_PASS = _parameter.List("name = 'SMTP_PASS'", "", 1, 0).List[0].Value;
+                        string SMTP_PORT = _parameter.List("name = 'SMTP_PORT'", "", 1, 0).List[0].Value;
+                        string SMTP_SSL = _parameter.List("name = 'SMTP_SSL'", "", 1, 0).List[0].Value;
+                        string SMTP_USERNAME = _parameter.List("name = 'SMTP_USERNAME'", "", 1, 0).List[0].Value;
                         SmtpConfig smtpConfig = new()
                         {
-                            From = _configuration["Smtp:From"] ?? "",
-                            Host = _configuration["Smtp:Host"] ?? "",
-                            Password = _configuration["Smtp:Password"] ?? "",
-                            Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                            Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                            Username = _configuration["Smtp:Username"] ?? ""
+                            From = SMTP_FROM,
+                            Host = SMTP_HOST,
+                            Password = SMTP_PASS,
+                            Port = int.Parse(SMTP_PORT),
+                            Ssl = bool.Parse(SMTP_SSL ?? "false"),
+                            Username = SMTP_USERNAME
                         };
-                        Template template = _templateError.Read(new() { Id = 3 }, _connection);
+                        Template template = _templateError.Read(new() { Id = 3 });
                         template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>());
                         Notification notification = new()
                         {
@@ -212,29 +223,31 @@ namespace Api.Controllers.Auth
                             Content = template.Content
                         };
                         BusinessNotification.SendNotification(notification, smtpConfig);
-                        return new() { Success = true, Message = "Contraseña cambiada con éxito" };
+                        result = new() { Success = true, Message = "Contraseña cambiada con éxito" };
                     }
                     else
                     {
-                        return new() { Success = false, Message = "Los datos no son válidos" };
+                        result = new() { Success = false, Message = "Los datos no son válidos" };
                     }
                 }
+                LogInfo("data: " + JsonSerializer.Serialize(data), JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "data: " + JsonSerializer.Serialize(data));
                 Response.StatusCode = 500;
                 return new() { Success = false, Message = e.Message };
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "data: " + JsonSerializer.Serialize(data));
                 Response.StatusCode = 500;
                 return new() { Success = false, Message = e.Message };
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "data: " + JsonSerializer.Serialize(data));
                 Response.StatusCode = 500;
                 return new() { Success = false, Message = e.Message };
             }
@@ -254,20 +267,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List roles related to user " + user);
-                return ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user }, _connection);
+                ListResult<Role> result = ((IBusinessUser)_business).ListRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             Response.StatusCode = 500;
             return new ListResult<Role>(new List<Role>(), 0);
@@ -287,20 +301,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("List roles not related to user " + user);
-                return ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user }, _connection);
+                ListResult<Role> result = ((IBusinessUser)_business).ListNotRoles(filters ?? "", orders ?? "", limit, offset, new() { Id = user });
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset + ", user: " + user);
             }
             Response.StatusCode = 500;
             return new ListResult<Role>(new List<Role>(), 0);
@@ -317,20 +332,21 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Insert role " + role.Id + " to user " + user);
-                return ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Role result = ((IBusinessUser)_business).InsertRole(role, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("role: " + JsonSerializer.Serialize(role) + ", user: " + user, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "role: " + JsonSerializer.Serialize(role) + ", user: " + user);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "role: " + JsonSerializer.Serialize(role) + ", user: " + user);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "role: " + JsonSerializer.Serialize(role) + ", user: " + user);
             }
             Response.StatusCode = 500;
             return new();
@@ -347,23 +363,36 @@ namespace Api.Controllers.Auth
         {
             try
             {
-                LogInfo("Delete role " + role + " to user " + user);
-                return ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                Role result = ((IBusinessUser)_business).DeleteRole(new() { Id = role }, new() { Id = user }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo("role: " + role + ", user " + user, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "role: " + role + ", user " + user);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "role: " + role + ", user " + user);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "role: " + role + ", user " + user);
             }
             Response.StatusCode = 500;
             return new();
+        }
+
+        /// <inheritdoc />
+        protected override User GetNewObject(int id)
+        {
+            return new User() { Id = id };
+        }
+
+        /// <inheritdoc />
+        protected override bool ObjectIsDefault(User obj)
+        {
+            return obj.Id == 0;
         }
         #endregion
     }

@@ -5,19 +5,22 @@ using Business.Noti;
 using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
+using Entities;
+using Entities.Config;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 
 namespace Api.Controllers
 {
     /// <summary>
     /// Clase base de los controladores del api
     /// </summary>
-    public abstract class ControllerBase<T> : ControllerBase where T : Entities.EntityBase, new()
+    public abstract class ControllerBase<T> : ControllerBase where T : IEntity, new()
     {
         #region Attributes
         /// <summary>
@@ -33,7 +36,7 @@ namespace Api.Controllers
         /// <summary>
         /// Administrador de logs en la base de datos
         /// </summary>
-        protected readonly IPersistentBase<LogComponent> _log;
+        protected readonly IPersistent<LogComponent> _log;
 
         /// <summary>
         /// Administrador de plantilla de errores
@@ -41,9 +44,9 @@ namespace Api.Controllers
         protected readonly IBusiness<Template> _templateError;
 
         /// <summary>
-        /// Conexión a la base de datos
+        /// Administrador de parámetros
         /// </summary>
-        protected readonly IDbConnection _connection;
+        protected readonly IBusiness<Parameter> _parameter;
         #endregion
 
         #region Constructors
@@ -54,13 +57,14 @@ namespace Api.Controllers
         /// <param name="business">Capar de negocio asociada a la entidad</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de notificaciones de error</param>
-        protected ControllerBase(IConfiguration configuration, IBusiness<T> business, IPersistentBase<LogComponent> log, IBusiness<Template> templateError, IDbConnection connection)
+        /// <param name="parameter">Administrador de parámetros</param>
+        protected ControllerBase(IConfiguration configuration, IBusiness<T> business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter)
         {
             _configuration = configuration;
             _log = log;
             _business = business;
             _templateError = templateError;
-            _connection = connection;
+            _parameter = parameter;
         }
         #endregion
 
@@ -78,20 +82,21 @@ namespace Api.Controllers
         {
             try
             {
-                LogInfo("Get " + typeof(T).Name + " list");
-                return _business.List(filters ?? "", orders ?? "", limit, offset, _connection);
+                ListResult<T> result = _business.List(filters ?? "", orders ?? "", limit, offset);
+                LogInfo("filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset, JsonSerializer.Serialize(result));
+                return result;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "filters: " + filters + ", orders: " + orders + ", limit: " + limit + ", offset: " + offset);
             }
             Response.StatusCode = 500;
             return new ListResult<T>(new List<T>(), 0);
@@ -107,30 +112,25 @@ namespace Api.Controllers
         {
             try
             {
-                LogInfo("Get " + typeof(T).Name + " with id = " + id);
-                T entity = _business.Read(new T() { Id = id }, _connection);
-                if (entity.Id != 0)
+                T entity = _business.Read(GetNewObject(id));
+                if (ObjectIsDefault(entity))
                 {
-                    return entity;
-                }
-                else
-                {
-                    LogInfo(typeof(T).Name + " with id = " + id + " not found");
                     Response.StatusCode = 404;
-                    return new();
                 }
+                LogInfo("id: " + id, JsonSerializer.Serialize(entity));
+                return entity;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "id: " + id);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "id: " + id);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "id: " + id);
             }
             Response.StatusCode = 500;
             return new();
@@ -146,21 +146,21 @@ namespace Api.Controllers
         {
             try
             {
-                entity = _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
-                LogInfo("Inserted " + typeof(T).Name + " with id = " + entity.Id);
+                entity = _business.Insert(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
+                LogInfo(JsonSerializer.Serialize(entity), JsonSerializer.Serialize(entity));
                 return entity;
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", JsonSerializer.Serialize(entity));
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", JsonSerializer.Serialize(entity));
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", JsonSerializer.Serialize(entity));
             }
             Response.StatusCode = 500;
             return new();
@@ -176,20 +176,20 @@ namespace Api.Controllers
         {
             try
             {
-                LogInfo("Update " + typeof(T).Name + " with id = " + entity.Id);
-                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                LogInfo(JsonSerializer.Serialize(entity), JsonSerializer.Serialize(entity));
+                return _business.Update(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", JsonSerializer.Serialize(entity));
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", JsonSerializer.Serialize(entity));
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", JsonSerializer.Serialize(entity));
             }
             Response.StatusCode = 500;
             return new();
@@ -205,31 +205,46 @@ namespace Api.Controllers
         {
             try
             {
-                LogInfo("Delete " + typeof(T).Name + " with id = " + id);
-                return _business.Delete(new() { Id = id }, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) }, _connection);
+                T entity = GetNewObject(id);
+                LogInfo("id: " + id, JsonSerializer.Serialize(entity));
+                return _business.Delete(entity, new() { Id = int.Parse(HttpContext.User.Claims.First(x => x.Type == "id").Value) });
             }
             catch (PersistentException e)
             {
-                LogError(e, "P");
+                LogError(e, "P", "id: " + id);
             }
             catch (BusinessException e)
             {
-                LogError(e, "B");
+                LogError(e, "B", "id: " + id);
             }
             catch (Exception e)
             {
-                LogError(e, "A");
+                LogError(e, "A", "id: " + id);
             }
             Response.StatusCode = 500;
             return new();
         }
 
+        /// <summary>
+        /// Retorna un nuevo objeto de tipo T con su identificador
+        /// </summary>
+        /// <param name="id">Identificador del objeto de tipo T</param>
+        /// <returns>Nuevo objeto de tipo T con su identificador</returns>
+        protected abstract T GetNewObject(int id);
+
+        /// <summary>
+        /// Determina si el objeto tiene valores por defecto
+        /// </summary>
+        /// <param name="obj">Objeto a validar</param>
+        /// <returns>Si el objeto tiene valores por defecto</returns>
+        protected abstract bool ObjectIsDefault(T obj);
 
         /// <summary>
         /// Guarda un registro de auditoría de tipo Información de los llamados al componente
         /// </summary>
-        /// <param name="info">Información a registrar</param>
-        protected void LogInfo(string info)
+        /// <param name="input">Datos de entrada del método del controlador</param>
+        /// <param name="output">Datos de salida del método del controlador</param>
+        protected void LogInfo(string input, string output)
         {
             if (_configuration.GetValue("LogInfo", false))
             {
@@ -246,10 +261,12 @@ namespace Api.Controllers
                 _log.Insert(new()
                 {
                     Type = "I",
-                    Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
-                    Description = info,
+                    Controller = ControllerContext.ActionDescriptor.ControllerName,
+                    Method = ControllerContext.ActionDescriptor.ActionName,
+                    Input = input,
+                    Output = output,
                     User = userid
-                }, _connection);
+                });
             }
         }
 
@@ -258,7 +275,8 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="ex">Excepción a registrar</param>
         /// <param name="level">Nivel en el que se registró la excepción P - Persistencia, B - Negocio,  A - API</param>
-        protected void LogError(Exception ex, string level)
+        /// <param name="input">Datos de entrada del método del controlador</param>
+        protected void LogError(Exception ex, string level, string input)
         {
             ClaimsPrincipal user = HttpContext.User;
             int userid = 1;
@@ -277,30 +295,39 @@ namespace Api.Controllers
                 desc.Append(aux.Message + " - ");
                 aux = aux.InnerException;
             }
-            desc.Append(" - " + ex.StackTrace ?? "Error no identificado");
+            desc.Append(" - " + (ex.StackTrace ?? "Error no identificado"));
             LogComponent l = _log.Insert(new()
             {
                 Type = "E",
-                Component = ControllerContext.ActionDescriptor.ControllerName + " - " + ControllerContext.ActionDescriptor.ActionName,
-                Description = desc.ToString(),
+                Controller = ControllerContext.ActionDescriptor.ControllerName,
+                Method = ControllerContext.ActionDescriptor.ActionName,
+                Input = input,
+                Output = desc.ToString(),
                 User = userid
-            }, _connection);
+            });
             try
             {
+                string SMTP_FROM = _parameter.List("name = 'SMTP_FROM'", "", 1, 0).List[0].Value;
+                string SMTP_HOST = _parameter.List("name = 'SMTP_HOST'", "", 1, 0).List[0].Value;
+                string SMTP_PASS = _parameter.List("name = 'SMTP_PASS'", "", 1, 0).List[0].Value;
+                string SMTP_PORT = _parameter.List("name = 'SMTP_PORT'", "", 1, 0).List[0].Value;
+                string SMTP_SSL = _parameter.List("name = 'SMTP_SSL'", "", 1, 0).List[0].Value;
+                string SMTP_USERNAME = _parameter.List("name = 'SMTP_USERNAME'", "", 1, 0).List[0].Value;
+                string NOTIFICATION_TO = _parameter.List("name = 'NOTIFICATION_TO'", "", 1, 0).List[0].Value;
                 SmtpConfig smtpConfig = new()
                 {
-                    From = _configuration["Smtp:From"] ?? "",
-                    Host = _configuration["Smtp:Host"] ?? "",
-                    Password = _configuration["Smtp:Password"] ?? "",
-                    Port = int.Parse(_configuration["Smtp:Port"] ?? "0"),
-                    Ssl = bool.Parse(_configuration["Smtp:Ssl"] ?? "false"),
-                    Username = _configuration["Smtp:Username"] ?? ""
+                    From = SMTP_FROM,
+                    Host = SMTP_HOST,
+                    Password = SMTP_PASS,
+                    Port = int.Parse(SMTP_PORT),
+                    Ssl = bool.Parse(SMTP_SSL ?? "false"),
+                    Username = SMTP_USERNAME
                 };
-                Template template = _templateError.Read(new() { Id = 1 }, _connection);
+                Template template = _templateError.Read(new() { Id = 1 });
                 template = BusinessTemplate.ReplacedVariables(template, new Dictionary<string, string>() { { "message", desc.ToString() }, { "id", l.Id.ToString() } });
                 Notification notification = new()
                 {
-                    To = _configuration["Notification:To"] ?? "soporte.sistemas@inglesefe.com",
+                    To = NOTIFICATION_TO,
                     Subject = "Error en la aplicación Golden Web",
                     User = userid,
                     Content = template.Content
