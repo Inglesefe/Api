@@ -1,19 +1,11 @@
 ﻿using Api.Controllers.Noti;
 using Business;
-using Dal;
 using Dal.Dto;
 using Dal.Exceptions;
 using Entities.Auth;
-using Entities.Log;
 using Entities.Noti;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Data;
-using System.Security.Claims;
-using System.Security.Principal;
 
 namespace Api.Test.Noti
 {
@@ -21,87 +13,39 @@ namespace Api.Test.Noti
     /// Realiza las pruebas sobre la api de notificaciones
     /// </summary>
     [Collection("Test")]
-    public class NotificationTest
+    public class NotificationTest : TestBase<Notification>
     {
-        #region Attributes
-        /// <summary>
-        /// Configuración de la aplicación de pruebas
-        /// </summary>
-        private readonly IConfiguration _configuration;
-
-        /// <summary>
-        /// Controlador API para las notificaciones
-        /// </summary>
-        private readonly NotificationController _api;
-
-        /// <summary>
-        /// Contexto HTTP con que se conecta a los servicios Rest
-        /// </summary>
-        private readonly ControllerContext _controllerContext;
-        #endregion
-
         #region Constructors
         /// <summary>
         /// Inicializa la configuración de la prueba
         /// </summary>
-        public NotificationTest()
+        public NotificationTest() : base()
         {
+            //Arrange
             Mock<IBusiness<Notification>> mockBusiness = new();
-            Mock<IPersistentBase<LogComponent>> mockLog = new();
-            Mock<IBusiness<Template>> mockTemplate = new();
-            Mock<IDbConnection> mockConnection = new();
-
-            GenericIdentity identity = new("usuario", "prueba");
-            identity.AddClaim(new Claim("id", "1"));
-            _controllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-                {
-                    User = new ClaimsPrincipal(identity)
-                },
-                ActionDescriptor = new ControllerActionDescriptor()
-                {
-                    ControllerName = "NotificationTest",
-                    ActionName = "Test"
-                }
-            };
-            _configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", false, false)
-                .AddEnvironmentVariables()
-                .Build();
 
             List<Notification> notifications = new()
             {
                 new Notification() { Id = 1, Date = DateTime.Now, To = "leandrobaena@gmail.com", Subject = "Correo de prueba", Content = "<h1>Esta es una prueba hecha por leandrobaena@gmail.com</h1>", User = 1 }
             };
-            List<Template> templates = new()
-            {
-                new Template() { Id = 1, Name = "Plantilla de prueba", Content = "<h1>Esta es una prueba hecha por #{user}#</h1>" }
-            };
 
-            mockBusiness.Setup(p => p.List("idnotification = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idnotification = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Returns(new ListResult<Notification>(notifications.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idnotificacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IDbConnection>()))
+            mockBusiness.Setup(p => p.List("idnotificacion = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Throws<PersistentException>();
-
-            mockBusiness.Setup(p => p.Read(It.IsAny<Notification>(), It.IsAny<IDbConnection>()))
-                .Returns((Notification notification, IDbConnection connection) => notifications.Find(x => x.Id == notification.Id) ?? new Notification());
-
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Notification>(), It.IsAny<User>(), It.IsAny<IDbConnection>()))
-                .Returns((Notification notification, User user, IDbConnection connection) =>
+            mockBusiness.Setup(p => p.Read(It.IsAny<Notification>()))
+                .Returns((Notification notification) => notifications.Find(x => x.Id == notification.Id) ?? new Notification());
+            mockBusiness.Setup(p => p.Insert(It.IsAny<Notification>(), It.IsAny<User>()))
+                .Returns((Notification notification, User user) =>
                 {
                     notification.Id = notifications.Count + 1;
                     notifications.Add(notification);
                     return notification;
                 });
 
-            mockLog.Setup(p => p.Insert(It.IsAny<LogComponent>(), It.IsAny<IDbConnection>())).Returns((LogComponent log, IDbConnection connection) => log);
-
-            mockTemplate.Setup(p => p.Read(It.IsAny<Template>(), It.IsAny<IDbConnection>())).Returns((Template template, IDbConnection connection) => templates.Find(x => x.Id == template.Id) ?? new Template());
-
-            _api = new(_configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockConnection.Object)
+            api = new NotificationController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
-                ControllerContext = _controllerContext
+                ControllerContext = controllerContext
             };
         }
         #endregion
@@ -111,10 +55,12 @@ namespace Api.Test.Noti
         /// Prueba la consulta de un listado de notificaciones con filtros, ordenamientos y límite
         /// </summary>
         [Fact]
-        public void NotificationListTest()
+        public void ListTest()
         {
-            ListResult<Notification> list = _api.List("idnotification = 1", "date", 1, 0);
+            //Act
+            ListResult<Notification> list = api.List("idnotification = 1", "date", 1, 0);
 
+            //Assert
             Assert.NotEmpty(list.List);
             Assert.True(list.Total > 0);
         }
@@ -123,10 +69,12 @@ namespace Api.Test.Noti
         /// Prueba la consulta de un listado de notificaciones con filtros, ordenamientos y límite y con errores
         /// </summary>
         [Fact]
-        public void NotificationListWithErrorTest()
+        public void ListWithErrorTest()
         {
-            ListResult<Notification> list = _api.List("idnotificacion = 1", "name", 1, 0);
+            //Act
+            ListResult<Notification> list = api.List("idnotificacion = 1", "name", 1, 0);
 
+            //Assert
             Assert.Equal(0, list.Total);
         }
 
@@ -134,10 +82,12 @@ namespace Api.Test.Noti
         /// Prueba la consulta de una notificación dada su identificador
         /// </summary>
         [Fact]
-        public void NotificationReadTest()
+        public void ReadTest()
         {
-            Notification notification = _api.Read(1);
+            //Act
+            Notification notification = api.Read(1);
 
+            //Assert
             Assert.Equal("leandrobaena@gmail.com", notification.To);
         }
 
@@ -145,10 +95,12 @@ namespace Api.Test.Noti
         /// Prueba la consulta de una notificación que no existe dado su identificador
         /// </summary>
         [Fact]
-        public void NotificationReadNotFoundTest()
+        public void ReadNotFoundTest()
         {
-            Notification notification = _api.Read(10);
+            //Act
+            Notification notification = api.Read(10);
 
+            //Assert
             Assert.Equal(0, notification.Id);
         }
 
@@ -156,11 +108,15 @@ namespace Api.Test.Noti
         /// Prueba la inserción de una notificación
         /// </summary>
         [Fact]
-        public void NotificationInsertTest()
+        public void InsertTest()
         {
+            //Arrange
             Notification notification = new() { Subject = "Prueba 1", Content = "<p>Prueba de notificación #{insertada}#", To = "leandrobaena@gmail.com", User = 1 };
-            notification = _api.Insert(notification);
 
+            //Act
+            notification = api.Insert(notification);
+
+            //Assert
             Assert.NotEqual(0, notification.Id);
         }
         #endregion

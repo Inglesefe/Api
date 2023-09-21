@@ -1,31 +1,32 @@
 ﻿using Business;
 using Dal;
 using Entities.Config;
+using Entities.Crm;
 using Entities.Log;
 using Entities.Noti;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Api.Controllers.Config
+namespace Api.Controllers.Crm
 {
     /// <summary>
-    /// Controlador con los métodos necesarios para administrar parámetros
+    /// Controlador con los métodos necesarios para administrar titulares
     /// </summary>
     [ApiController]
     [Route("[controller]")]
     [Authorize(Policy = "db")]
-    public class ParameterController : ControllerBase<Parameter>
+    public class OwnerController : ControllerBase<Owner>
     {
         #region Constructors
         /// <summary>
         /// Inicializa la configuración del controlador
         /// </summary>
         /// <param name="configuration">Configuración del api</param>
-        /// <param name="business">Capa de negocio de parámetros</param>
+        /// <param name="business">Capa de negocio de titulares</param>
         /// <param name="log">Administrador de logs en la base de datos</param>
         /// <param name="templateError">Administrador de notificaciones de error</param>
         /// <param name="parameter">Administrador de parámetros</param>
-        public ParameterController(IConfiguration configuration, IBusiness<Parameter> business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
+        public OwnerController(IConfiguration configuration, IBusiness<Owner> business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
                   configuration,
                   business,
                   log,
@@ -36,13 +37,13 @@ namespace Api.Controllers.Config
 
         #region Methods
         /// <inheritdoc />
-        protected override Parameter GetNewObject(int id)
+        protected override Owner GetNewObject(int id)
         {
-            return new Parameter() { Id = id };
+            return new Owner() { Id = id };
         }
 
         /// <inheritdoc />
-        protected override bool ObjectIsDefault(Parameter obj)
+        protected override bool ObjectIsDefault(Owner obj)
         {
             return obj.Id == 0;
         }
