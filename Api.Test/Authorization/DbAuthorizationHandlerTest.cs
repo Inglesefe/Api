@@ -31,7 +31,7 @@ namespace Api.Test.Authorization
         /// <summary>
         /// Contexto de autorización con que se conecta al manejador
         /// </summary>
-        private readonly AuthorizationHandlerContext context;
+        private AuthorizationHandlerContext? context;
 
         /// <summary>
         /// Manejador de autorización a probar
@@ -50,6 +50,19 @@ namespace Api.Test.Authorization
             business = new Mock<IBusinessApplication>();
             business.Setup(x => x.ListRoles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Application>()))
                 .Returns(roles);
+            handler = new(business.Object);
+            context = null;
+        }
+        #endregion
+
+        #region Methods
+        /// <summary>
+        /// Prueba la autorización sobre un controlador exitósamente
+        /// </summary>
+        [Fact]
+        public void HandleRequirementAsyncTest()
+        {
+            //Arrange
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
             identity.AddClaim(new Claim(ClaimTypes.Role, "1"));
@@ -62,22 +75,56 @@ namespace Api.Test.Authorization
             };
             controllerContext.HttpContext.Request.RouteValues.Add("controller", "User");
             context = new(new List<DbAuthorizationRequirement>() { new DbAuthorizationRequirement() }, new ClaimsPrincipal(identity), controllerContext.HttpContext);
-            handler = new(business.Object);
-        }
-        #endregion
 
-        #region Methods
-        /// <summary>
-        /// Prueba la autorización sobre un controlador
-        /// </summary>
-        [Fact]
-        public void HandleRequirementAsyncTest()
-        {
             //Act
             handler.HandleAsync(context).Wait();
 
             //Assert
             Assert.True(context.HasSucceeded);
+        }
+
+        /// <summary>
+        /// Prueba la autorización sobre un controlador fallido
+        /// </summary>
+        [Fact]
+        public void HandleRequirementAsyncFailTest()
+        {
+            //Arrange
+            GenericIdentity identity = new("usuario", "prueba");
+            identity.AddClaim(new Claim("id", "1"));
+            identity.AddClaim(new Claim(ClaimTypes.Role, "3"));
+            ControllerContext controllerContext = new()
+            {
+                HttpContext = new DefaultHttpContext()
+                {
+                    User = new ClaimsPrincipal(identity),
+                }
+            };
+            controllerContext.HttpContext.Request.RouteValues.Add("controller", "User");
+            context = new(new List<DbAuthorizationRequirement>() { new DbAuthorizationRequirement() }, new ClaimsPrincipal(identity), controllerContext.HttpContext);
+
+            //Act
+            handler.HandleAsync(context).Wait();
+
+            //Assert
+            Assert.True(context.HasFailed);
+        }
+
+        /// <summary>
+        /// Prueba la autorización sobre un controlador sin contexto
+        /// </summary>
+        [Fact]
+        public void HandleRequirementAsyncWithoutContextTest()
+        {
+            //Arrange
+            GenericIdentity identity = new("usuario", "prueba");
+            context = new(new List<DbAuthorizationRequirement>() { new DbAuthorizationRequirement() }, new ClaimsPrincipal(identity), null);
+
+            //Act
+            handler.HandleAsync(context).Wait();
+
+            //Assert
+            Assert.True(context.HasFailed);
         }
         #endregion
     }
