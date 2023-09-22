@@ -19,6 +19,13 @@ namespace Api.Test.Admon
         {
             //Arrange
             Mock<IBusiness<AccountExecutive>> mockBusiness = new();
+            List<AccountExecutive> executives = new()
+            {
+                new AccountExecutive() { Id = 1, Name = "Leandro Baena Torres", IdentificationType = new(){ Id = 1 }, Identification = "123456789" }
+            };
+
+            mockBusiness.Setup(p => p.Read(It.IsAny<AccountExecutive>()))
+                .Returns((AccountExecutive executive) => executives.Find(x => x.Id == executive.Id) ?? new AccountExecutive());
 
             api = new AccountExecutiveController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
@@ -29,13 +36,16 @@ namespace Api.Test.Admon
 
         #region Methods
         /// <summary>
-        /// Prueba la creación de un nuevo controlador para ejecutivos de cuenta
+        /// Prueba la consulta de un ejecutivo de cuenta dado su identificador
         /// </summary>
         [Fact]
-        public void CreateControllerTest()
+        public void ReadTest()
         {
+            //Act
+            AccountExecutive executive = api != null ? api.Read(1) : new();
+
             //Assert
-            Assert.IsType<AccountExecutiveController>(api);
+            Assert.Equal("Leandro Baena Torres", executive.Name);
         }
         #endregion
     }

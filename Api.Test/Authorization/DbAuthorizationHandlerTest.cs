@@ -3,6 +3,8 @@ using Business.Auth;
 using Dal.Dto;
 using Entities.Auth;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System.Security.Claims;
 using System.Security.Principal;
@@ -50,7 +52,16 @@ namespace Api.Test.Authorization
                 .Returns(roles);
             GenericIdentity identity = new("usuario", "prueba");
             identity.AddClaim(new Claim("id", "1"));
-            context = new(new List<DbAuthorizationRequirement>(), new ClaimsPrincipal(identity), null);
+            identity.AddClaim(new Claim(ClaimTypes.Role, "1"));
+            ControllerContext controllerContext = new()
+            {
+                HttpContext = new DefaultHttpContext()
+                {
+                    User = new ClaimsPrincipal(identity),
+                }
+            };
+            controllerContext.HttpContext.Request.RouteValues.Add("controller", "User");
+            context = new(new List<DbAuthorizationRequirement>() { new DbAuthorizationRequirement() }, new ClaimsPrincipal(identity), controllerContext.HttpContext);
             handler = new(business.Object);
         }
         #endregion
@@ -62,8 +73,11 @@ namespace Api.Test.Authorization
         [Fact]
         public void HandleRequirementAsyncTest()
         {
+            //Act
+            handler.HandleAsync(context).Wait();
+
             //Assert
-            Assert.True(handler.HandleAsync(context).IsCompleted);
+            Assert.True(context.HasSucceeded);
         }
         #endregion
     }
