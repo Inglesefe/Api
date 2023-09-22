@@ -27,7 +27,7 @@ namespace Api.Test
         /// <summary>
         /// Controlador API para los ejecutivos de cuenta
         /// </summary>
-        protected ControllerBase<T> api;
+        protected ControllerBase<T>? api;
 
         /// <summary>
         /// Contexto HTTP con que se conecta a los servicios Rest

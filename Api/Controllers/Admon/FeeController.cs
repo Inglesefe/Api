@@ -1,0 +1,53 @@
+﻿using Business;
+using Dal;
+using Entities.Admon;
+using Entities.Config;
+using Entities.Log;
+using Entities.Noti;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Api.Controllers.Admon
+{
+    /// <summary>
+    /// Controlador con los métodos necesarios para administrar cuotas de matrículas
+    /// </summary>
+    [ApiController]
+    [Route("[controller]")]
+    [Authorize(Policy = "db")]
+    public class FeeController : ControllerBase<Fee>
+    {
+        #region Constructors
+        /// <summary>
+        /// Inicializa la configuración del controlador
+        /// </summary>
+        /// <param name="configuration">Configuración del api</param>
+        /// <param name="business">Capa de negocio de cuotas de matrículas</param>
+        /// <param name="log">Administrador de logs en la base de datos</param>
+        /// <param name="templateError">Administrador de notificaciones de error</param>
+        /// <param name="parameter">Administrador de parámetros</param>
+        public FeeController(IConfiguration configuration, IBusiness<Fee> business, IPersistent<LogComponent> log, IBusiness<Template> templateError, IBusiness<Parameter> parameter) : base(
+                  configuration,
+                  business,
+                  log,
+                  templateError,
+                  parameter)
+        { }
+        #endregion
+
+        #region Methods
+
+        /// <inheritdoc />
+        protected override Fee GetNewObject(int id)
+        {
+            return new Fee() { Id = id };
+        }
+
+        /// <inheritdoc />
+        protected override bool ObjectIsDefault(Fee obj)
+        {
+            return obj.Id == 0;
+        }
+        #endregion
+    }
+}
