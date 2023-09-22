@@ -38,13 +38,13 @@ namespace Api.Controllers.Admon
         #region Methods
 
         /// <inheritdoc />
-        public override AccountExecutive GetNewObject(int id)
+        protected override AccountExecutive GetNewObject(int id)
         {
             return new AccountExecutive() { Id = id };
         }
 
         /// <inheritdoc />
-        public override bool ObjectIsDefault(AccountExecutive obj)
+        protected override bool ObjectIsDefault(AccountExecutive obj)
         {
             return obj.Id == 0;
         }

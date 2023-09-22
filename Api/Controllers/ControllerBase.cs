@@ -230,14 +230,14 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="id">Identificador del objeto de tipo T</param>
         /// <returns>Nuevo objeto de tipo T con su identificador</returns>
-        public abstract T GetNewObject(int id);
+        protected abstract T GetNewObject(int id);
 
         /// <summary>
         /// Determina si el objeto tiene valores por defecto
         /// </summary>
         /// <param name="obj">Objeto a validar</param>
         /// <returns>Si el objeto tiene valores por defecto</returns>
-        public abstract bool ObjectIsDefault(T obj);
+        protected abstract bool ObjectIsDefault(T obj);
 
         /// <summary>
         /// Guarda un registro de auditoría de tipo Información de los llamados al componente
