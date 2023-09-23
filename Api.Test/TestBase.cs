@@ -89,12 +89,13 @@ namespace Api.Test
 
             mockTemplate.Setup(p => p.Read(It.IsAny<Template>())).Returns((Template template) => templates.Find(x => x.Id == template.Id) ?? new Template());
 
-            mockParameter.Setup(p => p.List("name = 'SMTP_FROM'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_FROM", Value = "soporte.sistemas@inglesefe.com" } }, 1));
-            mockParameter.Setup(p => p.List("name = 'SMTP_HOST'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_HOST", Value = "mail.inglesefe.com" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'SMTP_FROM'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_FROM", Value = "leandrobaena@gmail.com" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'SMTP_HOST'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_HOST", Value = "smtp.gmail.com" } }, 1));
             mockParameter.Setup(p => p.List("name = 'SMTP_PASS'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_PASS", Value = configuration["Smtp:Password"] ?? "" } }, 1));
-            mockParameter.Setup(p => p.List("name = 'SMTP_PORT'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_PORT", Value = "465" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'SMTP_PORT'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_PORT", Value = "587" } }, 1));
             mockParameter.Setup(p => p.List("name = 'SMTP_SSL'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_SSL", Value = "true" } }, 1));
-            mockParameter.Setup(p => p.List("name = 'SMTP_USERNAME'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_USERNAME", Value = "soporte.sistemas@inglesefe.com" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'SMTP_STARTTLS'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_STARTTLS", Value = "true" } }, 1));
+            mockParameter.Setup(p => p.List("name = 'SMTP_USERNAME'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "SMTP_USERNAME", Value = "leandrobaena@gmail.com" } }, 1));
             mockParameter.Setup(p => p.List("name = 'NOTIFICATION_TO'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "NOTIFICATION_TO", Value = "leandrobaena@gmail.com" } }, 1));
             mockParameter.Setup(p => p.List("name = 'URL_CHANGE_PASS'", "", 1, 0)).Returns(new ListResult<Parameter>(new List<Parameter>() { new Parameter() { Id = 1, Name = "URL_CHANGE_PASS", Value = "https://localhost/change_password/" } }, 1));
         }

@@ -110,7 +110,7 @@ namespace Api.Test.Auth
         public void ReadByLoginAndPasswordTest()
         {
             //Act
-            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
 
             //Assert
             Assert.True(response.Valid);
@@ -123,7 +123,7 @@ namespace Api.Test.Auth
         public void ReadByLoginTest()
         {
             //Act
-            LoginResponse response = ((UserController)api).ReadByLogin("leandrobaena@gmail.com");
+            LoginResponse response = api != null ? ((UserController)api).ReadByLogin("leandrobaena@gmail.com") : new();
 
             //Assert
             Assert.True(response.Valid);
@@ -136,7 +136,7 @@ namespace Api.Test.Auth
         public void ReadByLoginAndPasswordInactiveTest()
         {
             //Act
-            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "inactivo@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
 
             //Assert
             Assert.False(response.Valid);
@@ -156,10 +156,10 @@ namespace Api.Test.Auth
             };
 
             //Act
-            _ = ((UserController)api).UpdatePassword(request);
+            _ = api != null ? ((UserController)api).UpdatePassword(request) : new();
 
             //Assert
-            LoginResponse response = ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" });
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "leandrobaena@gmail.com", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
             Assert.True(response.Valid);
         }
 
@@ -170,7 +170,7 @@ namespace Api.Test.Auth
         public void ListRolesTest()
         {
             //Act
-            ListResult<Role> list = ((UserController)api).ListRoles("", "", 10, 0, 1);
+            ListResult<Role> list = api != null ? ((UserController)api).ListRoles("", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
 
             //Assert
             Assert.NotEmpty(list.List);
@@ -184,7 +184,7 @@ namespace Api.Test.Auth
         public void ListRolesWithErrorTest()
         {
             //Act
-            ListResult<Role> list = ((UserController)api).ListRoles("idusuario = 1", "", 10, 0, 1);
+            ListResult<Role> list = api != null ? ((UserController)api).ListRoles("idusuario = 1", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
 
             //Assert
             Assert.Empty(list.List);
@@ -198,7 +198,7 @@ namespace Api.Test.Auth
         public void ListNotRolesTest()
         {
             //Act
-            ListResult<Role> list = ((UserController)api).ListNotRoles("", "", 10, 0, 1);
+            ListResult<Role> list = api != null ? ((UserController)api).ListNotRoles("", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
 
             //Assert
             Assert.NotEmpty(list.List);
@@ -212,7 +212,7 @@ namespace Api.Test.Auth
         public void InsertRoleTest()
         {
             //Act
-            Role role = ((UserController)api).InsertRole(new() { Id = 4 }, 1);
+            Role role = api != null ? ((UserController)api).InsertRole(new() { Id = 4 }, 1) : new();
 
             //Assert
             Assert.NotEqual(0, role.Id);
@@ -225,7 +225,7 @@ namespace Api.Test.Auth
         public void InsertRoleDuplicateTest()
         {
             //Act
-            Role role = ((UserController)api).InsertRole(new() { Id = 1 }, 1);
+            Role role = api != null ? ((UserController)api).InsertRole(new() { Id = 1 }, 1) : new();
 
             //Assert
             Assert.Equal(0, role.Id);
@@ -238,8 +238,8 @@ namespace Api.Test.Auth
         public void DeleteRoleTest()
         {
             //Act
-            _ = ((UserController)api).DeleteRole(2, 1);
-            ListResult<Role> list = ((UserController)api).ListRoles("r.idrole = 2", "", 10, 0, 1);
+            _ = api != null ? ((UserController)api).DeleteRole(2, 1) : new();
+            ListResult<Role> list = api != null ? ((UserController)api).ListRoles("r.idrole = 2", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
 
             //Assert
             Assert.Equal(0, list.Total);
