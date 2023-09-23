@@ -205,6 +205,7 @@ namespace Api.Controllers.Auth
                         string SMTP_PASS = _parameter.List("name = 'SMTP_PASS'", "", 1, 0).List[0].Value;
                         string SMTP_PORT = _parameter.List("name = 'SMTP_PORT'", "", 1, 0).List[0].Value;
                         string SMTP_SSL = _parameter.List("name = 'SMTP_SSL'", "", 1, 0).List[0].Value;
+                        string SMTP_STARTTLS = _parameter.List("name = 'SMTP_STARTTLS'", "", 1, 0).List[0].Value;
                         string SMTP_USERNAME = _parameter.List("name = 'SMTP_USERNAME'", "", 1, 0).List[0].Value;
                         SmtpConfig smtpConfig = new()
                         {
@@ -213,6 +214,7 @@ namespace Api.Controllers.Auth
                             Password = SMTP_PASS,
                             Port = int.Parse(SMTP_PORT),
                             Ssl = bool.Parse(SMTP_SSL ?? "false"),
+                            StartTls = bool.Parse(SMTP_STARTTLS ?? "false"),
                             Username = SMTP_USERNAME
                         };
                         Template template = _templateError.Read(new() { Id = 3 });
