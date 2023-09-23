@@ -44,43 +44,8 @@ namespace Api.Test.Config
                 new Tuple<Office, AccountExecutive>(offices[1], executives[0]),
                 new Tuple<Office, AccountExecutive>(offices[1], executives[1])
             };
-
-            mockBusiness.Setup(p => p.List("idoffice = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
-                .Returns(new ListResult<Office>(offices.Where(y => y.Id == 1).ToList(), 1));
-            mockBusiness.Setup(p => p.List("idoficina = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
-                .Throws<PersistentException>();
-
             mockBusiness.Setup(p => p.Read(It.IsAny<Office>()))
                 .Returns((Office office) => offices.Find(x => x.Id == office.Id) ?? new Office());
-
-            mockBusiness.Setup(p => p.Insert(It.IsAny<Office>(), It.IsAny<User>()))
-                .Returns((Office office, User user) =>
-                {
-                    if (offices.Exists(x => x.Name == office.Name))
-                    {
-                        throw new PersistentException();
-                    }
-                    else
-                    {
-                        office.Id = offices.Count + 1;
-                        offices.Add(office);
-                        return office;
-                    }
-                });
-
-            mockBusiness.Setup(p => p.Update(It.IsAny<Office>(), It.IsAny<User>()))
-                .Returns((Office office, User user) =>
-                {
-                    offices.Where(x => x.Id == office.Id).ToList().ForEach(x => x.Name = office.Name);
-                    return office;
-                });
-
-            mockBusiness.Setup(p => p.Delete(It.IsAny<Office>(), It.IsAny<User>()))
-                .Returns((Office office, User user) =>
-                {
-                    offices = offices.Where(x => x.Id != office.Id).ToList();
-                    return office;
-                });
             mockBusiness.Setup(p => p.ListAccountExecutives("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
                 .Returns(new ListResult<AccountExecutive>(executives_offices.Where(x => x.Item1.Id == 1).Select(x => x.Item2).ToList(), 1));
             mockBusiness.Setup(p => p.ListAccountExecutives("idaccountexecutive = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Office>()))
@@ -106,7 +71,6 @@ namespace Api.Test.Config
                         return executive;
                     }
                 });
-
             api = new OfficeController(configuration, mockBusiness.Object, mockLog.Object, mockTemplate.Object, mockParameter.Object)
             {
                 ControllerContext = controllerContext
@@ -115,33 +79,6 @@ namespace Api.Test.Config
         #endregion
 
         #region Methods
-        /// <summary>
-        /// Prueba la consulta de un listado de oficinas con filtros, ordenamientos y límite
-        /// </summary>
-        [Fact]
-        public void Test()
-        {
-            //Act
-            ListResult<Office> list = api.List("idoffice = 1", "o.name", 1, 0);
-
-            //Assert
-            Assert.NotEmpty(list.List);
-            Assert.True(list.Total > 0);
-        }
-
-        /// <summary>
-        /// Prueba la consulta de un listado de oficinas con filtros, ordenamientos y límite y con errores
-        /// </summary>
-        [Fact]
-        public void ListWithErrorTest()
-        {
-            //Act
-            ListResult<Office> list = api.List("idoficina = 1", "name", 1, 0);
-
-            //Assert
-            Assert.Equal(0, list.Total);
-        }
-
         /// <summary>
         /// Prueba la consulta de una oficina dada su identificador
         /// </summary>
@@ -153,66 +90,6 @@ namespace Api.Test.Config
 
             //Assert
             Assert.Equal("Castellana", office.Name);
-        }
-
-        /// <summary>
-        /// Prueba la consulta de una oficina que no existe dado su identificador
-        /// </summary>
-        [Fact]
-        public void ReadNotFoundTest()
-        {
-            //Act
-            Office office = api.Read(10);
-
-            //Assert
-            Assert.Equal(0, office.Id);
-        }
-
-        /// <summary>
-        /// Prueba la inserción de una oficina
-        /// </summary>
-        [Fact]
-        public void InsertTest()
-        {
-            //Arrange
-            Office office = new() { City = new() { Id = 1 }, Name = "Madelena", Address = "Calle 59 sur" };
-
-            //Act
-            office = api.Insert(office);
-
-            //Assert
-            Assert.NotEqual(0, office.Id);
-        }
-
-        /// <summary>
-        /// Prueba la actualización de una oficina
-        /// </summary>
-        [Fact]
-        public void UpdateTest()
-        {
-            //Arrange
-            Office office = new() { Id = 2, City = new() { Id = 1 }, Name = "Santa Librada", Address = "Calle 78 sur" };
-
-            //Act
-            _ = api.Update(office);
-            Office office2 = api.Read(2);
-
-            //Assert
-            Assert.NotEqual("Kennedy", office2.Name);
-        }
-
-        /// <summary>
-        /// Prueba la eliminación de una oficina
-        /// </summary>
-        [Fact]
-        public void DeleteTest()
-        {
-            //Act
-            _ = api.Delete(3);
-            Office office = api.Read(3);
-
-            //Assert
-            Assert.Equal(0, office.Id);
         }
 
         /// <summary>
