@@ -465,7 +465,7 @@ namespace Api.Test.Auth
         public void ListApplicationsWithError2Test()
         {
             //Act
-            ListResult<Application> list = api != null ? ((RoleController)api).ListApplications("idaplicacion = 1", "", 10, 0, -1) : new ListResult<Application>(new List<Application>(), 0);
+            ListResult<Application> list = api != null ? ((RoleController)api).ListApplications("error", "", 10, 0, 1) : new ListResult<Application>(new List<Application>(), 0);
 
             //Assert
             Assert.Empty(list.List);
@@ -479,7 +479,7 @@ namespace Api.Test.Auth
         public void ListApplicationsWithError3Test()
         {
             //Act
-            ListResult<Application> list = api != null ? ((RoleController)api).ListApplications("idaplicacion = 1", "", 10, 0, -3) : new ListResult<Application>(new List<Application>(), 0);
+            ListResult<Application> list = api != null ? ((RoleController)api).ListApplications("error1", "", 10, 0, 1) : new ListResult<Application>(new List<Application>(), 0);
 
             //Assert
             Assert.Empty(list.List);
