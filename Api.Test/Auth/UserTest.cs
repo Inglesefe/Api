@@ -86,18 +86,22 @@ namespace Api.Test.Auth
             mockBusiness.Setup(p => p.UpdatePassword(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<User>()))
                 .Returns((User user, string password, string key, string iv, User user1) =>
                 {
+                    if (user.Id == -2)
+                    {
+                        throw new PersistentException();
+                    }
                     return user;
                 });
             mockBusiness.Setup(p => p.ListRoles("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Returns(new ListResult<Role>(users_roles.Where(x => x.Item1.Id == 1).Select(x => x.Item2).ToList(), 1));
-            mockBusiness.Setup(p => p.ListRoles("r.idrole = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
+            mockBusiness.Setup(p => p.ListRoles("idrole = 2", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Returns(new ListResult<Role>(new List<Role>(), 0));
             mockBusiness.Setup(p => p.ListRoles("idusuario = 1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Throws<PersistentException>();
             mockBusiness.Setup(p => p.ListRoles("error", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Throws<BusinessException>();
             mockBusiness.Setup(p => p.ListRoles("error1", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
-                .Throws<PersistentException>();
+                .Throws<Exception>();
             mockBusiness.Setup(p => p.ListNotRoles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<User>()))
                 .Returns((string filters, string orders, int limit, int offset, User user) =>
                 {
@@ -189,10 +193,23 @@ namespace Api.Test.Auth
         }
 
         /// <summary>
-        /// Prueba la consulta de un usuario dado su login y contraseña con error de negocio
+        /// Prueba la consulta de un usuario dado su login y contraseña con error de persistencia
         /// </summary>
         [Fact]
         public void ReadByLoginAndPasswordWithErrorTest()
+        {
+            //Act
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error1", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
+
+            //Assert
+            Assert.False(response.Valid);
+        }
+
+        /// <summary>
+        /// Prueba la consulta de un usuario dado su login y contraseña con error de negocio
+        /// </summary>
+        [Fact]
+        public void ReadByLoginAndPasswordWithError2Test()
         {
             //Act
             LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
@@ -205,10 +222,10 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario dado su login y contraseña con error de persistencia
         /// </summary>
         [Fact]
-        public void ReadByLoginAndPasswordWithError2Test()
+        public void ReadByLoginAndPasswordWithError3Test()
         {
             //Act
-            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error1", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error2", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
 
             //Assert
             Assert.False(response.Valid);
@@ -218,10 +235,10 @@ namespace Api.Test.Auth
         /// Prueba la consulta de un usuario dado su login y contraseña con error general
         /// </summary>
         [Fact]
-        public void ReadByLoginAndPasswordWithError3Test()
+        public void ReadByLoginAndPasswordWithError4Test()
         {
             //Act
-            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error2", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
+            LoginResponse response = api != null ? ((UserController)api).ReadByLoginAndPassword(new() { Login = "error3", Password = "FLWnwyoEz/7tYsnS+vxTVg==" }) : new();
 
             //Assert
             Assert.False(response.Valid);
@@ -323,6 +340,26 @@ namespace Api.Test.Auth
             {
                 Password = "Prueba123",
                 Token = Crypto.Encrypt("1~leandrobaena@gmail.com~" + DateTime.Now.AddDays(-10).ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+            };
+
+            //Act
+            ChangePasswordResponse response = api != null ? ((UserController)api).UpdatePassword(request) : new();
+
+            //Assert
+            Assert.False(response.Success);
+        }
+
+        /// <summary>
+        /// Prueba la actualización de la contraseña de un usuario con enlace con datos erróneos
+        /// </summary>
+        [Fact]
+        public void UpdatePasswordErrorInDataTest()
+        {
+            //Arrange
+            ChangePasswordRequest request = new()
+            {
+                Password = "Prueba123",
+                Token = Crypto.Encrypt("0~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
 
             //Act
@@ -504,7 +541,7 @@ namespace Api.Test.Auth
         {
             //Act
             _ = api != null ? ((UserController)api).DeleteRole(2, 1) : new();
-            ListResult<Role> list = api != null ? ((UserController)api).ListRoles("r.idrole = 2", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
+            ListResult<Role> list = api != null ? ((UserController)api).ListRoles("idrole = 2", "", 10, 0, 1) : new ListResult<Role>(new List<Role>(), 0);
 
             //Assert
             Assert.Equal(0, list.Total);
