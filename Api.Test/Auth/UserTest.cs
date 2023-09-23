@@ -379,7 +379,7 @@ namespace Api.Test.Auth
             ChangePasswordRequest request = new()
             {
                 Password = "Prueba123",
-                Token = Crypto.Encrypt("-1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+                Token = Crypto.Encrypt("1~error~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
 
             //Act
@@ -399,7 +399,7 @@ namespace Api.Test.Auth
             ChangePasswordRequest request = new()
             {
                 Password = "Prueba123",
-                Token = Crypto.Encrypt("-2~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+                Token = Crypto.Encrypt("1~error2~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
 
             //Act
@@ -419,7 +419,7 @@ namespace Api.Test.Auth
             ChangePasswordRequest request = new()
             {
                 Password = "Prueba123",
-                Token = Crypto.Encrypt("-3~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+                Token = Crypto.Encrypt("1~error3~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
 
             //Act
