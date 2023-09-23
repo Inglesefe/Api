@@ -290,7 +290,7 @@ namespace Api.Test.Auth
         public void ReadByLoginWithError2Test()
         {
             //Act
-            LoginResponse response = api != null ? ((UserController)api).ReadByLogin("error1") : new();
+            LoginResponse response = api != null ? ((UserController)api).ReadByLogin("error2") : new();
 
             //Assert
             Assert.False(response.Valid);
@@ -303,7 +303,7 @@ namespace Api.Test.Auth
         public void ReadByLoginWithError3Test()
         {
             //Act
-            LoginResponse response = api != null ? ((UserController)api).ReadByLogin("error2") : new();
+            LoginResponse response = api != null ? ((UserController)api).ReadByLogin("error3") : new();
 
             //Assert
             Assert.False(response.Valid);
@@ -360,6 +360,66 @@ namespace Api.Test.Auth
             {
                 Password = "Prueba123",
                 Token = Crypto.Encrypt("0~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+            };
+
+            //Act
+            ChangePasswordResponse response = api != null ? ((UserController)api).UpdatePassword(request) : new();
+
+            //Assert
+            Assert.False(response.Success);
+        }
+
+        /// <summary>
+        /// Prueba la actualización de la contraseña de un usuario con enlace con error de negocio
+        /// </summary>
+        [Fact]
+        public void UpdatePasswordErrorTest()
+        {
+            //Arrange
+            ChangePasswordRequest request = new()
+            {
+                Password = "Prueba123",
+                Token = Crypto.Encrypt("-1~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+            };
+
+            //Act
+            ChangePasswordResponse response = api != null ? ((UserController)api).UpdatePassword(request) : new();
+
+            //Assert
+            Assert.False(response.Success);
+        }
+
+        /// <summary>
+        /// Prueba la actualización de la contraseña de un usuario con enlace con error de persistencia
+        /// </summary>
+        [Fact]
+        public void UpdatePasswordError2Test()
+        {
+            //Arrange
+            ChangePasswordRequest request = new()
+            {
+                Password = "Prueba123",
+                Token = Crypto.Encrypt("-2~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
+            };
+
+            //Act
+            ChangePasswordResponse response = api != null ? ((UserController)api).UpdatePassword(request) : new();
+
+            //Assert
+            Assert.False(response.Success);
+        }
+
+        /// <summary>
+        /// Prueba la actualización de la contraseña de un usuario con enlace con error general
+        /// </summary>
+        [Fact]
+        public void UpdatePasswordError3Test()
+        {
+            //Arrange
+            ChangePasswordRequest request = new()
+            {
+                Password = "Prueba123",
+                Token = Crypto.Encrypt("-3~leandrobaena@gmail.com~" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), configuration["Aes:Key"] ?? "", configuration["Aes:IV"] ?? "")
             };
 
             //Act
