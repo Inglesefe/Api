@@ -18,7 +18,10 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddCors(opt => opt.AddDefaultPolicy(x => x.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(opt => opt.AddDefaultPolicy(x => x
+    .WithOrigins("https://localhost", "https://192.168.1.37", "https://192.168.1.4", "https://192.168.1.7")
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
 builder.Services.AddControllers();
 builder.Services
     .AddEndpointsApiExplorer()
@@ -69,7 +72,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-app.UseCors(x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod());
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
